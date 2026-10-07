@@ -42,6 +42,19 @@ jobs:
       - name: Rendre gradlew exécutable
         run: chmod +x gradlew
 
+      # Les tests (Tarot, règles de fin de partie, championnat) tournent avant l'APK :
+      # une régression bloque le workflow au lieu de passer inaperçue.
+      - name: Lancer les tests unitaires
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      - name: Publier le rapport de tests (en cas d'échec)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "Rapport de tests"
+          path: app/build/reports/tests/
+          if-no-files-found: ignore
+
       - name: Construire l'APK (debug)
         run: ./gradlew assembleDebug --stacktrace
 
