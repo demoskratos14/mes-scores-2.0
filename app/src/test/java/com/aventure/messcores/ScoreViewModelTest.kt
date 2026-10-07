@@ -7,8 +7,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
+// Les textes sont en français : on fixe la langue pour que les pluriels suivent les règles françaises (0 → singulier).
+@Config(qualifiers = "fr")
 class ScoreViewModelTest {
 
     private val names = listOf("Anna", "Ben", "Chloé")

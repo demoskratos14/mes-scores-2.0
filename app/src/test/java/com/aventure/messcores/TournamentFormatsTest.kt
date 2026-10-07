@@ -9,9 +9,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 /** Poules (chacun contre chacun) et tableau suivant l'ordre de la liste. */
 @RunWith(RobolectricTestRunner::class)
+// Les textes sont en français : on fixe la langue pour que les pluriels suivent les règles françaises (0 → singulier).
+@Config(qualifiers = "fr")
 class TournamentFormatsTest {
 
     private fun names(n: Int) = List(n) { "J${it + 1}" }
