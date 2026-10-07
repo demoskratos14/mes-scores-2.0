@@ -1,5 +1,8 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -31,6 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 /** Jeux pour lesquels le seuil de fin de partie (500/1000 points) est ajustable ici. */
 private val LONG_GAME_TOGGLE_IDS = setOf("builtin_belote", "builtin_rami")
@@ -48,6 +53,7 @@ fun ChooseGameScreen(
     // On retient l'id (et non le jeu) : la sélection survit au passage par le formulaire de modification.
     var selectedId by rememberSaveable { mutableStateOf("builtin_generic") }
     val selected = games.firstOrNull { it.id == selectedId } ?: games.first()
+    val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     var longGame by remember { mutableStateOf(false) }
     var genericMode by remember { mutableStateOf(ScoreMode.TABLE) }
@@ -59,14 +65,14 @@ fun ChooseGameScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.93f)),
+            colors = CardDefaults.cardColors(containerColor = cardSurface()),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Quel jeu ?", style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(R.string.choose_title), style = MaterialTheme.typography.headlineMedium)
 
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -76,7 +82,7 @@ fun ChooseGameScreen(
                         value = selected.name,
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Jeu") },
+                        label = { Text(stringResource(R.string.choose_game_label)) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
                         modifier = Modifier.menuAnchor().fillMaxWidth()
                     )
@@ -90,7 +96,7 @@ fun ChooseGameScreen(
                                     Column {
                                         Text(game.name)
                                         Text(
-                                            text = ruleSummary(game),
+                                            text = ruleSummary(context, game),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -107,43 +113,46 @@ fun ChooseGameScreen(
                 }
 
                 Text(
-                    text = ruleSummary(selected),
+                    text = ruleSummary(context, selected),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
                 if (selected.id == "builtin_generic") {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Mode de score", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.score_mode), style = MaterialTheme.typography.titleSmall)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = genericMode == ScoreMode.TABLE,
                                 onClick = { genericMode = ScoreMode.TABLE },
-                                label = { Text("Tableau (manches)") }
+                                label = { Text(stringResource(R.string.score_mode_table)) }
                             )
                             FilterChip(
                                 selected = genericMode == ScoreMode.COUNTER,
                                 onClick = { genericMode = ScoreMode.COUNTER },
-                                label = { Text("Compteur (+1/-1)") }
+                                label = { Text(stringResource(R.string.score_mode_counter)) }
                             )
                         }
                     }
                 }
 
                 if (selected.id in LONG_GAME_TOGGLE_IDS) {
+                    // La ligne entière est l'interrupteur (une seule cible, avec son texte, pour TalkBack).
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(value = longGame, role = Role.Switch, onValueChange = { longGame = it }),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Partie longue")
+                            Text(stringResource(R.string.choose_long_game))
                             Text(
-                                text = if (longGame) "Fin à 1000 points" else "Fin à 500 points",
+                                text = stringResource(if (longGame) R.string.choose_end_1000 else R.string.choose_end_500),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Switch(checked = longGame, onCheckedChange = { longGame = it })
+                        Switch(checked = longGame, onCheckedChange = null)
                     }
                 }
 
@@ -151,10 +160,10 @@ fun ChooseGameScreen(
                 if (!selected.id.startsWith("builtin_")) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedButton(onClick = { onEditGame(selected) }, modifier = Modifier.weight(1f)) {
-                            Text("Modifier ce jeu")
+                            Text(stringResource(R.string.choose_edit_game))
                         }
                         OutlinedButton(onClick = { confirmDelete = true }, modifier = Modifier.weight(1f)) {
-                            Text("Supprimer", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
@@ -163,7 +172,7 @@ fun ChooseGameScreen(
                     onClick = onCreateNewGame,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("+ Créer un nouveau jeu")
+                    Text(stringResource(R.string.choose_create_game))
                 }
 
                 errorMessage?.let { message ->
@@ -176,7 +185,7 @@ fun ChooseGameScreen(
 
                 Button(
                     onClick = {
-                        errorMessage = playerCountError(selected, playerCount)
+                        errorMessage = playerCountError(context, selected, playerCount)
                         if (errorMessage != null) return@Button
                         val finalRules = when {
                             selected.id == "builtin_generic" -> selected.copy(scoreMode = genericMode)
@@ -192,7 +201,7 @@ fun ChooseGameScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Continuer")
+                    Text(stringResource(R.string.common_continue))
                 }
             }
         }
@@ -201,8 +210,8 @@ fun ChooseGameScreen(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Supprimer « ${selected.name} » ?") },
-            text = { Text("Le jeu disparaît de la liste. Les parties déjà enregistrées au journal sont conservées.") },
+            title = { Text(stringResource(R.string.choose_delete_title, selected.name)) },
+            text = { Text(stringResource(R.string.choose_delete_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     repository.deleteCustomGame(selected.id)
@@ -210,34 +219,35 @@ fun ChooseGameScreen(
                     selectedId = "builtin_generic"
                     errorMessage = null
                     confirmDelete = false
-                }) { Text("Supprimer", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.common_delete), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) { Text("Annuler") }
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
 }
 
 /** Message d'erreur si le nombre de joueurs ne convient pas au jeu, sinon null. */
-private fun playerCountError(game: GameRules, playerCount: Int): String? = when {
-    playerCount < game.minPlayers ->
-        "${game.name} se joue à ${playersRange(game)}. Tu as saisi $playerCount joueur${if (playerCount > 1) "s" else ""} : " +
-            "il en faut au moins ${game.minPlayers}. Reviens en arrière pour en ajouter."
-    playerCount > game.maxPlayers ->
-        "${game.name} se joue à ${playersRange(game)}. Tu as saisi $playerCount joueurs : " +
-            "il n'en faut pas plus de ${game.maxPlayers}. Reviens en arrière pour en retirer."
-    else -> null
+private fun playerCountError(context: Context, game: GameRules, playerCount: Int): String? {
+    val entered = context.resources.getQuantityString(R.plurals.players_count, playerCount, playerCount)
+    return when {
+        playerCount < game.minPlayers ->
+            context.getString(R.string.choose_error_too_few, game.name, playersRange(context, game), entered, game.minPlayers)
+        playerCount > game.maxPlayers ->
+            context.getString(R.string.choose_error_too_many, game.name, playersRange(context, game), entered, game.maxPlayers)
+        else -> null
+    }
 }
 
-private fun playersRange(game: GameRules): String =
-    if (game.minPlayers == game.maxPlayers) "${game.minPlayers} joueurs"
-    else "${game.minPlayers} à ${game.maxPlayers} joueurs"
+private fun playersRange(context: Context, game: GameRules): String =
+    if (game.minPlayers == game.maxPlayers) context.resources.getQuantityString(R.plurals.players_count, game.minPlayers, game.minPlayers)
+    else context.getString(R.string.choose_players_range, game.minPlayers, game.maxPlayers)
 
-private fun ruleSummary(game: GameRules): String {
-    val direction = if (game.lowestWins) "le plus petit score gagne" else "le plus grand score gagne"
-    val negative = if (game.allowNegativeScores) "scores négatifs autorisés" else "scores positifs uniquement"
+private fun ruleSummary(context: Context, game: GameRules): String {
+    val direction = context.getString(if (game.lowestWins) R.string.rule_lowest_wins else R.string.rule_highest_wins)
+    val negative = context.getString(if (game.allowNegativeScores) R.string.rule_negatives_allowed else R.string.rule_positives_only)
     val players = if (game.minPlayers == GameRules.DEFAULT_MIN_PLAYERS && game.maxPlayers == GameRules.DEFAULT_MAX_PLAYERS) ""
-    else " · ${playersRange(game)}"
-    return "$direction · $negative$players"
+    else context.getString(R.string.choose_rule_players_suffix, playersRange(context, game))
+    return context.getString(R.string.choose_rule_summary, direction, negative, players)
 }

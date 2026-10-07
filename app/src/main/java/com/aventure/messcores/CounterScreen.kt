@@ -1,5 +1,6 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -16,7 +17,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledIconButton
@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -45,6 +46,7 @@ fun CounterScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryRepos
     val ranks by remember(viewModel) { derivedStateOf { viewModel.ranks } }
 
     KeepScreenOn()
+    val context = LocalContext.current
 
     var justSaved by remember { mutableStateOf(false) }
     LaunchedEffect(justSaved) {
@@ -62,7 +64,7 @@ fun CounterScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryRepos
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Feuille de scores",
+                    text = stringResource(R.string.scoreboard),
                     style = MaterialTheme.typography.headlineSmall,
                     color = Color.White
                 )
@@ -82,7 +84,7 @@ fun CounterScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryRepos
             players.forEachIndexed { index, name ->
                 val rank = viewModel.rankOf(index, ranks)
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.93f)),
+                    colors = CardDefaults.cardColors(containerColor = cardSurface()),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -92,7 +94,7 @@ fun CounterScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryRepos
                         if (viewModel.isLeader(index, totals, ranks)) {
                             Icon(
                                 imageVector = Icons.Filled.EmojiEvents,
-                                contentDescription = "Premier",
+                                contentDescription = stringResource(R.string.first_place),
                                 tint = Color(0xFFFFC107),
                                 modifier = Modifier.padding(end = 6.dp)
                             )
@@ -107,7 +109,7 @@ fun CounterScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryRepos
                         }
 
                         FilledIconButton(onClick = { viewModel.incrementCounter(index, -1) }) {
-                            Icon(Icons.Filled.Remove, contentDescription = "Retirer un point")
+                            Icon(Icons.Filled.Remove, contentDescription = stringResource(R.string.counter_remove))
                         }
                         Spacer(modifier = Modifier.width(16.dp))
                         Text(
@@ -119,7 +121,7 @@ fun CounterScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryRepos
                         )
                         Spacer(modifier = Modifier.width(16.dp))
                         FilledIconButton(onClick = { viewModel.incrementCounter(index, 1) }) {
-                            Icon(Icons.Filled.Add, contentDescription = "Ajouter un point")
+                            Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.counter_add))
                         }
                     }
                 }
@@ -127,14 +129,15 @@ fun CounterScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryRepos
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        Button(
-            onClick = {
+        ScoreActionBar(
+            justSaved = justSaved,
+            onSave = {
                 viewModel.saveToJournal(historyRepository)
                 justSaved = true
             },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (justSaved) "Partie enregistrée ✓" else "Enregistrer")
-        }
+            onShare = { ResultText.share(context, viewModel.shareText(context)) },
+            onUndo = { viewModel.undo() },
+            canUndo = viewModel.canUndo
+        )
     }
 }

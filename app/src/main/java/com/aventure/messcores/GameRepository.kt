@@ -12,7 +12,7 @@ import java.util.UUID
  * personnalisés créés par l'utilisateur, sauvegardés dans les SharedPreferences
  * (donc conservés d'une ouverture de l'app à l'autre, sans dépendance externe).
  */
-class GameRepository(context: Context) {
+class GameRepository(private val context: Context) {
 
     private val prefs = context.getSharedPreferences("mes_scores_games", Context.MODE_PRIVATE)
 
@@ -26,14 +26,14 @@ class GameRepository(context: Context) {
     fun builtInGames(): List<GameRules> = listOf(
         GameRules(
             id = "builtin_generic",
-            name = "Jeu classique",
+            name = context.getString(R.string.game_generic),
             lowestWins = false,
             allowNegativeScores = false,
             scoreMode = ScoreMode.TABLE
         ),
         GameRules(
             id = "builtin_skyjo",
-            name = "Skyjo",
+            name = context.getString(R.string.game_skyjo),
             minPlayers = 2,
             maxPlayers = 8,
             lowestWins = true,
@@ -43,22 +43,22 @@ class GameRepository(context: Context) {
         ),
         GameRules(
             id = "builtin_tarot",
-            name = "Tarot",
+            name = context.getString(R.string.game_tarot),
             minPlayers = 3,
             maxPlayers = 5,
             lowestWins = false,
             allowNegativeScores = true,
             scoreMode = ScoreMode.VARIABLE_TEAMS,
             multipliers = listOf(
-                GameRules.NORMAL_MULTIPLIER.copy(label = "Petite"),
-                ScoreMultiplier(id = "tarot_garde", label = "Garde", factor = 2),
-                ScoreMultiplier(id = "tarot_garde_sans", label = "Garde sans", factor = 4),
-                ScoreMultiplier(id = "tarot_garde_contre", label = "Garde contre", factor = 6)
+                GameRules.NORMAL_MULTIPLIER.copy(label = context.getString(R.string.tarot_bid_petite)),
+                ScoreMultiplier(id = "tarot_garde", label = context.getString(R.string.tarot_bid_garde), factor = 2),
+                ScoreMultiplier(id = "tarot_garde_sans", label = context.getString(R.string.tarot_bid_garde_sans), factor = 4),
+                ScoreMultiplier(id = "tarot_garde_contre", label = context.getString(R.string.tarot_bid_garde_contre), factor = 6)
             )
         ),
         GameRules(
             id = "builtin_belote",
-            name = "Belote (à 501 points)",
+            name = context.getString(R.string.game_belote),
             minPlayers = 2,
             maxPlayers = 4,
             lowestWins = false,
@@ -68,7 +68,7 @@ class GameRepository(context: Context) {
         ),
         GameRules(
             id = "builtin_rami",
-            name = "Rami",
+            name = context.getString(R.string.game_rami),
             minPlayers = 2,
             maxPlayers = 6,
             lowestWins = true,
@@ -78,7 +78,7 @@ class GameRepository(context: Context) {
         ),
         GameRules(
             id = "builtin_uno",
-            name = "Uno",
+            name = context.getString(R.string.game_uno),
             minPlayers = 2,
             maxPlayers = 10,
             lowestWins = false,

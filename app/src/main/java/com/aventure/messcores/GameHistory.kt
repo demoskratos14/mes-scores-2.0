@@ -261,18 +261,45 @@ class GameHistoryRepository(context: Context) {
      */
     fun saveGame(game: SavedGame) {
         val current = listGames().filterNot { it.id == game.id } + game
-        val excess = current.size - MAX_SAVED_GAMES
-        if (excess <= 0) {
-            persist(current)
-            return
+        persist(JournalBackup.trimToLimit(current, MAX_SAVED_GAMES, keepId = game.id))
+    }
+
+    /** Contenu du fichier de sauvegarde du journal (voir [JournalBackup]). */
+    fun exportJson(): String = JournalBackup.export(listGames(), System.currentTimeMillis())
+
+    /** Bilan d'un import : parties ajoutées, mises à jour, déjà à jour, illisibles, et supprimées faute de place. */
+    data class ImportSummary(
+        val added: Int,
+        val updated: Int,
+        val unchanged: Int,
+        val invalid: Int,
+        val droppedForSpace: Int
+    )
+
+    /**
+     * Importe le contenu d'un fichier de sauvegarde en le fusionnant au journal actuel (rien n'est
+     * effacé ; voir [JournalBackup.merge]). Renvoie null et laisse le journal intact si le fichier
+     * n'est pas une sauvegarde valide ; [onError] reçoit alors la raison.
+     */
+    fun importJson(text: String, onError: (JournalBackup.ImportError) -> Unit): ImportSummary? {
+        when (val parsed = JournalBackup.parse(text)) {
+            is JournalBackup.ParseResult.Error -> {
+                onError(parsed.reason)
+                return null
+            }
+            is JournalBackup.ParseResult.Ok -> {
+                val merged = JournalBackup.merge(listGames(), parsed.games)
+                val kept = JournalBackup.trimToLimit(merged.games, MAX_SAVED_GAMES)
+                persist(kept)
+                return ImportSummary(
+                    added = merged.added,
+                    updated = merged.updated,
+                    unchanged = merged.unchanged,
+                    invalid = parsed.invalid,
+                    droppedForSpace = merged.games.size - kept.size
+                )
+            }
         }
-        val dropped = current
-            .filter { it.id != game.id }
-            .sortedWith(compareByDescending<SavedGame> { it.isFinished }.thenBy { it.savedAt })
-            .take(excess)
-            .map { it.id }
-            .toSet()
-        persist(current.filterNot { it.id in dropped })
     }
 
     /** Supprime toutes les parties terminées (les parties en cours sont conservées). */

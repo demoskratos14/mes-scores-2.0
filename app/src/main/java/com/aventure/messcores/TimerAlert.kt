@@ -95,9 +95,9 @@ object TimerAlert {
 
             // minSdk = 26 : les canaux de notification existent toujours.
             val channel = NotificationChannel(
-                CHANNEL_ID, "Minuteur", NotificationManager.IMPORTANCE_HIGH
+                CHANNEL_ID, context.getString(R.string.timer_countdown), NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Alerte à la fin du minuteur"
+                description = context.getString(R.string.timer_channel_description)
                 setSound(
                     alarmSound,
                     AudioAttributes.Builder()
@@ -117,8 +117,8 @@ object TimerAlert {
             )
             val notification = NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-                .setContentTitle("Minuteur terminé")
-                .setContentText("Le temps est écoulé !")
+                .setContentTitle(context.getString(R.string.timer_notification_title))
+                .setContentText(context.getString(R.string.timer_notification_text))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_ALARM)
                 .setAutoCancel(true)

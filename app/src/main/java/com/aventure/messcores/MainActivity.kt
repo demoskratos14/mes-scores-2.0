@@ -1,8 +1,10 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -60,11 +62,24 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Nécessaire pour que Modifier.imePadding() fonctionne correctement et que le
         // contenu remonte automatiquement au-dessus du clavier au lieu d'être masqué.
-        enableEdgeToEdge()
+        // La photo de fond est toujours assombrie par un voile : icônes claires dans la barre d'état
+        // et la barre de navigation, en thème clair comme en thème sombre.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+        )
         setContent {
-            MaterialTheme {
+            // Apparence choisie sur l'écran d'accueil (Auto = réglage du téléphone), conservée entre deux lancements.
+            var themeMode by remember { mutableStateOf(ThemePreference.load(this@MainActivity)) }
+            MesScoresTheme(mode = themeMode) {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    ScoreApp()
+                    ScoreApp(
+                        themeMode = themeMode,
+                        onThemeModeChange = { mode ->
+                            themeMode = mode
+                            ThemePreference.save(this@MainActivity, mode)
+                        }
+                    )
                 }
             }
         }
@@ -72,7 +87,10 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun ScoreApp() {
+fun ScoreApp(
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeModeChange: (ThemeMode) -> Unit = {}
+) {
     val navController = rememberNavController()
     // Le ViewModel est créé ici, au niveau du graphe de navigation,
     // afin d'être partagé entre tous les écrans.
@@ -126,6 +144,11 @@ fun ScoreApp() {
                     onOpenJournal = {
                         navController.navigate("journal")
                     },
+                    onOpenStats = {
+                        navController.navigate("stats")
+                    },
+                    themeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange,
                     onOpenTournament = {
                         // Un championnat sauvegardé se reprend directement ; sinon on en prépare un.
                         navController.navigate(
@@ -136,8 +159,8 @@ fun ScoreApp() {
             }
             composable("tournamentSetup") {
                 TournamentSetupScreen(
-                    onNext = { names ->
-                        tournamentViewModel.startTournament(names)
+                    onNext = { names, format, ordered ->
+                        tournamentViewModel.startTournament(names, format, ordered)
                         navController.navigate("tournamentBracket") { popUpTo("setup") }
                     },
                     onBack = { navController.popBackStack() }
@@ -148,6 +171,12 @@ fun ScoreApp() {
                     viewModel = tournamentViewModel,
                     onBack = { navController.popBackStack("setup", inclusive = false) },
                     onNewTournament = { navController.navigate("tournamentSetup") }
+                )
+            }
+            composable("stats") {
+                StatsScreen(
+                    repository = gameHistoryRepository,
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable("journal") {
@@ -237,20 +266,20 @@ fun ScoreApp() {
         if (showQuitDialog) {
             AlertDialog(
                 onDismissRequest = { showQuitDialog = false },
-                title = { Text("Quitter la partie ?") },
+                title = { Text(stringResource(R.string.quit_title)) },
                 text = {
                     Column {
-                        Text("La partie est en cours. Veux-tu l'enregistrer avant de quitter ?")
+                        Text(stringResource(R.string.quit_message))
                         TextButton(onClick = { quitGame(save = false) }) {
-                            Text("Quitter sans enregistrer", color = MaterialTheme.colorScheme.error)
+                            Text(stringResource(R.string.quit_without_saving), color = MaterialTheme.colorScheme.error)
                         }
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { quitGame(save = true) }) { Text("Enregistrer et quitter") }
+                    TextButton(onClick = { quitGame(save = true) }) { Text(stringResource(R.string.quit_save_and_quit)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showQuitDialog = false }) { Text("Continuer la partie") }
+                    TextButton(onClick = { showQuitDialog = false }) { Text(stringResource(R.string.quit_continue)) }
                 }
             )
         }

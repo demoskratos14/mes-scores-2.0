@@ -1,5 +1,6 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
@@ -52,6 +53,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,6 +90,7 @@ fun ScoreScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryReposit
     val scoreRowHeight = if (hasCustomMultipliers) 92.dp else 72.dp
 
     KeepScreenOn()
+    val context = LocalContext.current
 
     // Nom complet affiché en popup quand une case de nom tronquée est cliquée.
     var expandedNameIndex by remember { mutableStateOf<Int?>(null) }
@@ -117,7 +121,7 @@ fun ScoreScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryReposit
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Feuille de scores",
+                    text = stringResource(R.string.scoreboard),
                     style = MaterialTheme.typography.headlineSmall,
                     color = Color.White
                 )
@@ -138,13 +142,17 @@ fun ScoreScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryReposit
         if (viewModel.isGameOver()) {
             val winners = viewModel.winners()
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF59D)),
+                colors = CardDefaults.cardColors(containerColor = highlightContainer(), contentColor = highlightContent()),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
             ) {
                 Text(
-                    text = "Partie terminée" + if (winners.isEmpty()) "" else {
-                        " · ${winners.joinToString(" et ") { players[it] }} " +
-                            (if (winners.size > 1) "gagnent !" else "gagne !")
+                    text = if (winners.isEmpty()) {
+                        stringResource(R.string.score_game_over)
+                    } else {
+                        stringResource(
+                            if (winners.size > 1) R.string.score_game_over_winners else R.string.score_game_over_winner,
+                            winners.joinToString(stringResource(R.string.result_and)) { players[it] }
+                        )
                     },
                     modifier = Modifier.padding(12.dp),
                     fontWeight = FontWeight.Bold
@@ -154,7 +162,7 @@ fun ScoreScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryReposit
 
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = Color.White.copy(alpha = 0.93f)
+                containerColor = cardSurface()
             ),
             modifier = Modifier.fillMaxWidth().weight(1f)
         ) {
@@ -186,7 +194,7 @@ fun ScoreScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryReposit
                                         if (isLeader) {
                                             Icon(
                                                 imageVector = Icons.Filled.EmojiEvents,
-                                                contentDescription = "Premier",
+                                                contentDescription = stringResource(R.string.first_place),
                                                 tint = Color(0xFFFFC107),
                                                 modifier = Modifier.padding(end = 4.dp)
                                             )
@@ -199,7 +207,7 @@ fun ScoreScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryReposit
                                         .width(playerColumnWidth)
                                         .height(NAME_ROW_HEIGHT)
                                         .background(color)
-                                        .clickable { expandedNameIndex = playerIndex },
+                                        .clickable(onClickLabel = stringResource(R.string.score_show_full_name), role = Role.Button) { expandedNameIndex = playerIndex },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -228,14 +236,14 @@ fun ScoreScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryReposit
                                         modifier = Modifier.width(LABEL_COLUMN_WIDTH).height(scoreRowHeight),
                                         contentAlignment = Alignment.CenterStart
                                     ) {
-                                        Text("Manche ${index + 1}")
+                                        Text(stringResource(R.string.score_round_n, index + 1))
                                     }
                                 }
                                 Box(
                                     modifier = Modifier.width(LABEL_COLUMN_WIDTH).height(TOTAL_ROW_HEIGHT),
                                     contentAlignment = Alignment.CenterStart
                                 ) {
-                                    Text("Total", fontWeight = FontWeight.Bold)
+                                    Text(stringResource(R.string.score_total), fontWeight = FontWeight.Bold)
                                 }
                             }
 
@@ -252,7 +260,12 @@ fun ScoreScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryReposit
                                                 allowNegative = viewModel.gameRules.allowNegativeScores,
                                                 multipliers = multipliers,
                                                 playerColor = color,
-                                                onChanged = { viewModel.notifyCellChanged(roundIndex) }
+                                                onValueEntered = { value, negative ->
+                                                    viewModel.setCell(roundIndex, playerIndex, value, negative)
+                                                },
+                                                onMultiplierPicked = { id ->
+                                                    viewModel.setMultiplier(roundIndex, playerIndex, id)
+                                                }
                                             )
                                         }
                                     }
@@ -266,7 +279,7 @@ fun ScoreScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryReposit
                                         Text(
                                             text = totals.getOrElse(playerIndex) { 0 }.toString(),
                                             fontWeight = FontWeight.Bold,
-                                            color = color
+                                            color = playerTextColor(color)
                                         )
                                     }
                                 }
@@ -278,24 +291,25 @@ fun ScoreScreen(viewModel: ScoreViewModel, historyRepository: GameHistoryReposit
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        Button(
-            onClick = {
+        ScoreActionBar(
+            justSaved = justSaved,
+            onSave = {
                 viewModel.saveToJournal(historyRepository)
                 justSaved = true
             },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (justSaved) "Partie enregistrée ✓" else "Enregistrer")
-        }
+            onShare = { ResultText.share(context, viewModel.shareText(context)) },
+            onUndo = { viewModel.undo() },
+            canUndo = viewModel.canUndo
+        )
     }
 
     expandedNameIndex?.let { index ->
         AlertDialog(
             onDismissRequest = { expandedNameIndex = null },
             confirmButton = {
-                TextButton(onClick = { expandedNameIndex = null }) { Text("OK") }
+                TextButton(onClick = { expandedNameIndex = null }) { Text(stringResource(R.string.common_ok)) }
             },
-            title = { Text("Joueur") },
+            title = { Text(stringResource(R.string.score_player)) },
             text = { Text(players.getOrElse(index) { "" }) }
         )
     }
@@ -313,7 +327,8 @@ private fun ScoreCell(
     allowNegative: Boolean,
     multipliers: List<ScoreMultiplier>,
     playerColor: Color,
-    onChanged: () -> Unit
+    onValueEntered: (Int?, Boolean) -> Unit,
+    onMultiplierPicked: (String) -> Unit
 ) {
     // rememberSaveable : la boîte de saisie reste ouverte après une rotation.
     var showDialog by rememberSaveable { mutableStateOf(false) }
@@ -329,7 +344,7 @@ private fun ScoreCell(
                     color = MaterialTheme.colorScheme.primary,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
-                        .clickable { expanded = true }
+                        .clickable(onClickLabel = stringResource(R.string.score_change_multiplier), role = Role.Button) { expanded = true }
                         .padding(vertical = 2.dp)
                 )
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -337,9 +352,8 @@ private fun ScoreCell(
                         DropdownMenuItem(
                             text = { Text("${multiplier.label} ×${multiplier.factor}") },
                             onClick = {
-                                cell.multiplierId = multiplier.id
                                 expanded = false
-                                onChanged()
+                                onMultiplierPicked(multiplier.id)
                             }
                         )
                     }
@@ -355,13 +369,13 @@ private fun ScoreCell(
                 .height(48.dp)
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp))
                 .clip(RoundedCornerShape(8.dp))
-                .clickable { showDialog = true },
+                .clickable(onClickLabel = stringResource(R.string.score_enter), role = Role.Button) { showDialog = true },
             contentAlignment = Alignment.Center
         ) {
             if (base != null) {
                 Text(
                     text = (if (cell.isNegative) "−" else "") + base,
-                    color = playerColor,
+                    color = playerTextColor(playerColor),
                     fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.bodyLarge,
                     maxLines = 1,
@@ -377,10 +391,8 @@ private fun ScoreCell(
             initialNegative = cell.isNegative,
             allowNegative = allowNegative,
             onConfirm = { value, negative ->
-                cell.baseValue = value
-                cell.isNegative = negative
                 showDialog = false
-                onChanged()
+                onValueEntered(value, negative)
             },
             onDismiss = { showDialog = false }
         )
@@ -410,7 +422,7 @@ private fun ScoreInputDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Saisir le score") },
+        title = { Text(stringResource(R.string.score_enter_title)) },
         text = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (allowNegative) {
@@ -422,7 +434,7 @@ private fun ScoreInputDialog(
                             text = if (negative) "−" else "+",
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleLarge,
-                            color = if (negative) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurface
+                            color = if (negative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -443,10 +455,10 @@ private fun ScoreInputDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { confirm() }) { Text("OK") }
+            TextButton(onClick = { confirm() }) { Text(stringResource(R.string.common_ok)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annuler") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
         }
     )
 }

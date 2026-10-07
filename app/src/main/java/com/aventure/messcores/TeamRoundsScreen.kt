@@ -1,5 +1,6 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
@@ -34,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -51,6 +53,7 @@ fun TeamRoundsScreen(
     val rounds = viewModel.teamRounds
 
     KeepScreenOn()
+    val context = LocalContext.current
 
     var justSaved by remember { mutableStateOf(false) }
     LaunchedEffect(justSaved) {
@@ -68,7 +71,7 @@ fun TeamRoundsScreen(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Feuille de scores",
+                    text = stringResource(R.string.scoreboard),
                     style = MaterialTheme.typography.headlineSmall,
                     color = Color.White
                 )
@@ -88,7 +91,7 @@ fun TeamRoundsScreen(
 
         Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.93f)),
+            colors = CardDefaults.cardColors(containerColor = cardSurface()),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -105,7 +108,7 @@ fun TeamRoundsScreen(
                         if (viewModel.isLeader(index, totals, ranks)) {
                             Icon(
                                 imageVector = Icons.Filled.EmojiEvents,
-                                contentDescription = "Premier",
+                                contentDescription = stringResource(R.string.first_place),
                                 tint = Color(0xFFFFC107),
                                 modifier = Modifier.padding(end = 6.dp)
                             )
@@ -122,11 +125,11 @@ fun TeamRoundsScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("+ Nouvelle manche")
+                    Text(stringResource(R.string.team_new_round))
                 }
 
                 if (rounds.isNotEmpty()) {
-                    Text("Historique des manches", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.team_history), style = MaterialTheme.typography.titleSmall)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -141,13 +144,13 @@ fun TeamRoundsScreen(
                             ) {
                                 Text(
                                     text = if (round.deltas != null) {
-                                        "Manche ${index + 1} — ${round.teamALabel}\n" +
+                                        stringResource(R.string.team_round_header, index + 1, round.teamALabel) + "\n" +
                                             players.indices.joinToString(" · ") { p ->
                                                 val d = round.deltas.getOrElse(p) { 0 }
                                                 "${players[p]} ${if (d > 0) "+" else if (d < 0) "−" else ""}${kotlin.math.abs(d)}"
                                             }
                                     } else {
-                                        "Manche ${index + 1} — ${round.teamALabel} : ${if (round.value >= 0) "+" else ""}${round.value}"
+                                        stringResource(R.string.team_round_line, index + 1, round.teamALabel, (if (round.value >= 0) "+" else "") + round.value)
                                     },
                                     modifier = Modifier.weight(1f),
                                     style = MaterialTheme.typography.bodySmall
@@ -157,11 +160,11 @@ fun TeamRoundsScreen(
                                         viewModel.editingTeamRoundIndex = index
                                         onAddRound()
                                     }) {
-                                        Icon(Icons.Filled.Edit, contentDescription = "Modifier cette manche")
+                                        Icon(Icons.Filled.Edit, contentDescription = stringResource(R.string.team_edit_round))
                                     }
                                 }
                                 IconButton(onClick = { viewModel.removeTeamRound(index) }) {
-                                    Icon(Icons.Filled.Close, contentDescription = "Supprimer cette manche")
+                                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.team_delete_round))
                                 }
                             }
                         }
@@ -172,14 +175,14 @@ fun TeamRoundsScreen(
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        Button(
-            onClick = {
+        // Pas de bouton « Annuler » ici : chaque manche se corrige ou se supprime dans l'historique.
+        ScoreActionBar(
+            justSaved = justSaved,
+            onSave = {
                 viewModel.saveToJournal(historyRepository)
                 justSaved = true
             },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (justSaved) "Partie enregistrée ✓" else "Enregistrer")
-        }
+            onShare = { ResultText.share(context, viewModel.shareText(context)) }
+        )
     }
 }

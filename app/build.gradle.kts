@@ -55,6 +55,21 @@ android {
         compose = true
     }
 
+    // Robolectric (tests des SharedPreferences) a besoin des ressources de l'appli.
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
+    // ./gradlew lintDebug (lancé par le workflow) : les erreurs font échouer la construction,
+    // les avertissements apparaissent dans le rapport HTML sans la bloquer.
+    lint {
+        abortOnError = true
+        warningsAsErrors = false
+        htmlReport = true
+    }
+
     // Renomme le fichier APK généré : "Mes scores-debug.apk", "Mes scores-release.apk", etc.
     // au lieu du nom par défaut "app-debug.apk" basé sur le nom du module.
     applicationVariants.all {
@@ -86,4 +101,10 @@ dependencies {
 
     // Tests unitaires (./gradlew testDebugUnitTest)
     testImplementation("junit:junit:4.13.2")
+    // org.json est fourni par Android au runtime, mais ses classes sont de simples coquilles vides
+    // dans les tests unitaires JVM : cette version réelle permet de tester le format JSON du journal.
+    testImplementation("org.json:json:20240303")
+    // Robolectric simule Android sur la JVM : permet de tester ce qui passe par les SharedPreferences
+    // (GameRepository, GameHistoryRepository, TournamentViewModel) sans émulateur.
+    testImplementation("org.robolectric:robolectric:4.14.1")
 }

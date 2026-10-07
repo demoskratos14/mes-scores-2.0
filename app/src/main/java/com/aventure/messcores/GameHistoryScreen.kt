@@ -1,5 +1,7 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
+import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,11 +31,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val historyDateFormat = SimpleDateFormat("d MMM yyyy 'à' HH:mm", Locale.FRENCH)
+private fun historyDate(context: Context, millis: Long): String =
+    SimpleDateFormat(context.getString(R.string.history_date_pattern), Locale.getDefault()).format(Date(millis))
 
 /**
  * Journal des parties : liste, triée de la plus récente à la plus ancienne, des parties
@@ -47,14 +59,60 @@ fun GameHistoryScreen(
     onBack: () -> Unit
 ) {
     var games by remember { mutableStateOf(repository.listGames()) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // Résultat du dernier export/import, affiché sous les boutons.
+    var status by remember { mutableStateOf<String?>(null) }
+
+    // Sélecteurs de fichier d'Android (aucune permission nécessaire) : l'utilisateur choisit
+    // lui-même où enregistrer la sauvegarde ou quel fichier relire.
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                status = withContext(Dispatchers.IO) {
+                    try {
+                        val json = repository.exportJson()
+                        context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(json.toByteArray(Charsets.UTF_8)) }
+                            ?: throw IOException(context.getString(R.string.history_stream_unavailable))
+                        context.getString(R.string.history_export_ok, context.quantity(R.plurals.games_count, repository.listGames().size))
+                    } catch (e: Exception) {
+                        context.getString(R.string.history_export_failed, e.message ?: context.getString(R.string.error_unknown))
+                    }
+                }
+            }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                val message = withContext(Dispatchers.IO) {
+                    try {
+                        val text = context.contentResolver.openInputStream(uri)?.use { it.readBytes().toString(Charsets.UTF_8) }
+                            ?: throw IOException(context.getString(R.string.history_file_unreadable))
+                        var error: JournalBackup.ImportError? = null
+                        val summary = repository.importJson(text) { error = it }
+                        if (summary == null) importErrorText(context, error) else importMessage(context, summary)
+                    } catch (e: Exception) {
+                        context.getString(R.string.history_import_failed, e.message ?: context.getString(R.string.error_unknown))
+                    }
+                }
+                games = repository.listGames()
+                status = message
+            }
+        }
+    }
     var gameToDelete by remember { mutableStateOf<SavedGame?>(null) }
     var confirmClearFinished by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        TextButton(onClick = onBack) { Text("← Retour") }
+        TextButton(onClick = onBack) { Text(stringResource(R.string.common_back)) }
 
         Text(
-            text = "Journal des parties",
+            text = stringResource(R.string.journal_title),
             style = MaterialTheme.typography.headlineSmall,
             color = Color.White,
             modifier = Modifier.padding(bottom = 12.dp)
@@ -67,25 +125,59 @@ fun GameHistoryScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Les ${GameHistoryRepository.MAX_SAVED_GAMES} dernières parties sont conservées.",
+                    text = stringResource(R.string.history_limit, GameHistoryRepository.MAX_SAVED_GAMES),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.85f),
                     modifier = Modifier.weight(1f)
                 )
                 if (games.any { it.isFinished }) {
-                    TextButton(onClick = { confirmClearFinished = true }) { Text("Effacer les terminées") }
+                    TextButton(onClick = { confirmClearFinished = true }) { Text(stringResource(R.string.history_clear_finished)) }
+                }
+            }
+        }
+
+        // Sauvegarde / restauration : à garder avant un changement de téléphone ou une désinstallation.
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            val secondaryColors = ButtonDefaults.outlinedButtonColors(containerColor = cardSurface())
+            OutlinedButton(
+                onClick = {
+                    exportLauncher.launch("mes-scores-journal-${SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())}.json")
+                },
+                enabled = games.isNotEmpty(),
+                colors = secondaryColors,
+                modifier = Modifier.weight(1f)
+            ) { Text(stringResource(R.string.history_export)) }
+            OutlinedButton(
+                onClick = { importLauncher.launch(arrayOf("*/*")) },
+                colors = secondaryColors,
+                modifier = Modifier.weight(1f)
+            ) { Text(stringResource(R.string.history_import)) }
+        }
+        status?.let { message ->
+            Card(
+                colors = CardDefaults.cardColors(containerColor = cardSurface()),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(start = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(message, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { status = null }) { Text(stringResource(R.string.common_ok)) }
                 }
             }
         }
 
         if (games.isEmpty()) {
             Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.93f)),
+                colors = CardDefaults.cardColors(containerColor = cardSurface()),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(
-                    text = "Aucune partie enregistrée pour l'instant. Utilise le bouton " +
-                        "\"Enregistrer\" pendant une partie pour la retrouver ici.",
+                    text = stringResource(R.string.history_empty),
                     modifier = Modifier.padding(20.dp)
                 )
             }
@@ -111,13 +203,13 @@ fun GameHistoryScreen(
                     repository.deleteFinishedGames()
                     games = repository.listGames()
                     confirmClearFinished = false
-                }) { Text("Effacer") }
+                }) { Text(stringResource(R.string.history_clear)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmClearFinished = false }) { Text("Annuler") }
+                TextButton(onClick = { confirmClearFinished = false }) { Text(stringResource(R.string.common_cancel)) }
             },
-            title = { Text("Effacer les parties terminées ?") },
-            text = { Text("Les parties terminées ($count) seront supprimées. Les parties en cours sont conservées.") }
+            title = { Text(stringResource(R.string.history_clear_title)) },
+            text = { Text(stringResource(R.string.history_clear_message, count)) }
         )
     }
 
@@ -129,12 +221,12 @@ fun GameHistoryScreen(
                     repository.deleteGame(game.id)
                     games = repository.listGames()
                     gameToDelete = null
-                }) { Text("Supprimer") }
+                }) { Text(stringResource(R.string.common_delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { gameToDelete = null }) { Text("Annuler") }
+                TextButton(onClick = { gameToDelete = null }) { Text(stringResource(R.string.common_cancel)) }
             },
-            title = { Text("Supprimer cette partie ?") },
+            title = { Text(stringResource(R.string.history_delete_title)) },
             text = { Text("${game.gameRules.name} · ${game.players.joinToString(", ")}") }
         )
     }
@@ -146,8 +238,9 @@ private fun GameHistoryRow(
     onResume: () -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
     Card(
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.93f)),
+        colors = CardDefaults.cardColors(containerColor = cardSurface()),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -163,7 +256,7 @@ private fun GameHistoryRow(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = if (game.isFinished) "Terminée" else "En cours",
+                    text = stringResource(if (game.isFinished) R.string.history_finished else R.string.history_in_progress),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold,
                     color = if (game.isFinished) {
@@ -174,7 +267,7 @@ private fun GameHistoryRow(
                 )
             }
             Text(
-                text = historyDateFormat.format(Date(game.savedAt)),
+                text = historyDate(context, game.savedAt),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -192,20 +285,51 @@ private fun GameHistoryRow(
                 val best = if (game.gameRules.lowestWins) totals.min() else totals.max()
                 val leaders = game.players.indices.filter { totals[it] == best }
                 Text(
-                    text = (if (leaders.size > 1) "Vainqueurs : " else "Vainqueur : ") +
-                        leaders.joinToString(" et ") { game.players[it] },
+                    text = stringResource(
+                        if (leaders.size > 1) R.string.result_winners else R.string.result_winner,
+                        leaders.joinToString(stringResource(R.string.result_and)) { game.players[it] }
+                    ),
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                 Button(onClick = onResume) {
-                    Text(if (game.isFinished) "Revoir" else "Reprendre")
+                    Text(stringResource(if (game.isFinished) R.string.history_review else R.string.history_resume))
                 }
                 OutlinedButton(onClick = onDelete) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Supprimer cette partie")
+                    Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.history_delete_description, game.gameRules.name, historyDate(context, game.savedAt)))
                 }
             }
         }
     }
 }
+
+/** Phrase de bilan affichée après un import (voir [GameHistoryRepository.ImportSummary]). */
+private fun importMessage(context: Context, r: GameHistoryRepository.ImportSummary): String {
+    val res = context.resources
+    val parts = mutableListOf<String>()
+    if (r.added > 0) parts.add(res.getQuantityString(R.plurals.history_import_added, r.added, r.added))
+    if (r.updated > 0) parts.add(res.getQuantityString(R.plurals.history_import_updated, r.updated, r.updated))
+    if (r.unchanged > 0) parts.add(res.getQuantityString(R.plurals.history_import_unchanged, r.unchanged, r.unchanged))
+    if (r.invalid > 0) parts.add(res.getQuantityString(R.plurals.history_import_invalid, r.invalid, r.invalid))
+    if (r.droppedForSpace > 0) {
+        parts.add(
+            res.getQuantityString(
+                R.plurals.history_import_dropped, r.droppedForSpace, r.droppedForSpace,
+                GameHistoryRepository.MAX_SAVED_GAMES
+            )
+        )
+    }
+    return if (parts.isEmpty()) context.getString(R.string.history_import_empty)
+    else context.getString(R.string.history_import_done, parts.joinToString(", "))
+}
+
+/** Texte de l'erreur d'import (raison fournie par [GameHistoryRepository.importJson]). */
+private fun importErrorText(context: Context, error: JournalBackup.ImportError?): String = context.getString(
+    when (error) {
+        JournalBackup.ImportError.NOT_A_BACKUP -> R.string.history_import_not_backup
+        JournalBackup.ImportError.NEWER_VERSION -> R.string.history_import_newer
+        null -> R.string.history_import_impossible
+    }
+)

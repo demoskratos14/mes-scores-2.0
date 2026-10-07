@@ -28,7 +28,7 @@ fun AppBackground() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f))
+                .background(Color.Black.copy(alpha = if (isDarkTheme()) 0.72f else 0.55f))
         )
     }
 }

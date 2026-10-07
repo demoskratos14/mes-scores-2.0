@@ -29,8 +29,26 @@ class TournamentViewModel(application: Application) : AndroidViewModel(applicati
     /** Vrai si un championnat (en cours ou terminé) est disponible, y compris restauré après un redémarrage. */
     val hasTournament: Boolean get() = state.hasTournament
 
-    /** Démarre un nouveau championnat, en tirant l'ordre du tableau au sort. */
-    fun startTournament(names: List<String>) = update(TournamentEngine.start(names))
+    /** Format du championnat en cours (élimination directe ou poules). */
+    val format: TournamentFormat get() = state.format
+
+    /**
+     * Démarre un nouveau championnat. En élimination directe, l'ordre du tableau est tiré au sort, ou suit
+     * l'ordre de [names] si [ordered] ; [ordered] est sans effet en poules.
+     */
+    fun startTournament(
+        names: List<String>,
+        format: TournamentFormat = TournamentFormat.KNOCKOUT,
+        ordered: Boolean = false
+    ) = update(
+        when (format) {
+            TournamentFormat.KNOCKOUT -> TournamentEngine.start(names, ordered = ordered)
+            TournamentFormat.ROUND_ROBIN -> TournamentEngine.startRoundRobin(names)
+        }
+    )
+
+    /** Classement des poules (vide en élimination directe). */
+    fun standings(): List<PouleRow> = state.standings()
 
     /** Désigne [winner] (index dans [participants]) comme vainqueur du match indiqué. */
     fun setWinner(roundIndex: Int, matchIndex: Int, winner: Int) =
@@ -61,6 +79,7 @@ class TournamentViewModel(application: Application) : AndroidViewModel(applicati
         obj.put("version", FORMAT_VERSION)
         obj.put("participants", JSONArray(s.participants))
         obj.put("finished", s.finished)
+        obj.put("format", s.format.name)
         val roundsArray = JSONArray()
         s.rounds.forEach { round ->
             val roundArray = JSONArray()
@@ -98,16 +117,27 @@ class TournamentViewModel(application: Application) : AndroidViewModel(applicati
                     )
                 }
             }
-            TournamentState(names, rounds, obj.optBoolean("finished", false))
+            // Les anciennes sauvegardes n'ont pas de format : c'était toujours de l'élimination directe.
+            val format = try {
+                TournamentFormat.valueOf(obj.optString("format", TournamentFormat.KNOCKOUT.name))
+            } catch (e: IllegalArgumentException) {
+                TournamentFormat.KNOCKOUT
+            }
+            TournamentState(names, rounds, obj.optBoolean("finished", false), format)
         } catch (e: Exception) {
             // Sauvegarde illisible : on repart sans championnat plutôt que de planter au démarrage.
-            Log.w(TAG, "Championnat sauvegardé illisible, ignoré", e)
+            // Le texte brut est mis de côté (une seule copie, la plus ancienne) avant qu'un nouvel
+            // enregistrement ne l'écrase, comme pour le journal et les jeux personnalisés.
+            Log.w(TAG, "Championnat sauvegardé illisible, copie de sécurité conservée", e)
+            if (!prefs.contains(KEY_BACKUP)) prefs.edit { putString(KEY_BACKUP, json) }
             TournamentState()
         }
     }
 
     private companion object {
         const val KEY_TOURNAMENT = "tournament"
+        /** Copie de sécurité du texte brut quand le championnat sauvegardé n'a pas pu être relu. */
+        const val KEY_BACKUP = "tournament_unreadable_backup"
         const val FORMAT_VERSION = 1
         const val TAG = "TournamentViewModel"
     }

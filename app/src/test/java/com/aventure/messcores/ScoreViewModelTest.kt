@@ -4,7 +4,11 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class ScoreViewModelTest {
 
     private val names = listOf("Anna", "Ben", "Chloé")
@@ -196,6 +200,115 @@ class ScoreViewModelTest {
         val before = vm.scores.size
         vm.enter(vm.scores.lastIndex, 0, 1)
         assertEquals(before + 1, vm.scores.size)
+    }
+
+    // ---------- Annulation ----------
+
+    private fun counterGame(): ScoreViewModel =
+        ScoreViewModel().also { it.initGame(names, GameRules(id = "c", name = "C", scoreMode = ScoreMode.COUNTER)) }
+
+    @Test
+    fun annulerUnAppuiSurUnCompteurLeRemetAvant() {
+        val vm = counterGame()
+        assertFalse(vm.canUndo)
+        vm.incrementCounter(1, 1)
+        vm.incrementCounter(1, 1)
+        vm.incrementCounter(0, -1)
+        assertEquals(listOf(-1, 2, 0), vm.totals)
+        vm.undo()
+        assertEquals(listOf(0, 2, 0), vm.totals)
+        vm.undo()
+        vm.undo()
+        assertEquals(listOf(0, 0, 0), vm.totals)
+        assertFalse(vm.canUndo)
+        vm.undo() // sans effet
+        assertEquals(listOf(0, 0, 0), vm.totals)
+    }
+
+    @Test
+    fun annulerUneSaisieDeCaseRestaureLAncienneValeur() {
+        val vm = tableGame(GameRules(id = "t", name = "T", allowNegativeScores = true))
+        vm.setCell(0, 0, 10, false)
+        vm.setCell(0, 0, 25, true)
+        assertEquals(listOf(-25, 0, 0), vm.totals)
+        vm.undo()
+        assertEquals(listOf(10, 0, 0), vm.totals)
+        vm.undo()
+        assertEquals(listOf(0, 0, 0), vm.totals)
+        assertEquals(null, vm.scores[0][0].baseValue)
+    }
+
+    @Test
+    fun annulerLaSaisieRetireLaMancheAjouteeAutomatiquement() {
+        val vm = tableGame(GameRules(id = "t", name = "T"))
+        val before = vm.scores.size
+        vm.setCell(vm.scores.lastIndex, 0, 7, false)
+        assertEquals(before + 1, vm.scores.size)
+        vm.undo()
+        assertEquals(before, vm.scores.size)
+    }
+
+    @Test
+    fun annulerNeRetirePasUneMancheDejaRemplie() {
+        val vm = tableGame(GameRules(id = "t", name = "T"))
+        val last = vm.scores.lastIndex
+        vm.setCell(last, 0, 7, false)           // ajoute une manche vide
+        vm.setCell(last + 1, 1, 3, false)       // la remplit en partie, ce qui en ajoute une autre
+        val size = vm.scores.size
+        vm.undo()                               // annule la 2e saisie seulement
+        assertEquals(size - 1, vm.scores.size)
+        assertEquals(7, vm.scores[last][0].baseValue)
+        assertEquals(null, vm.scores[last + 1][1].baseValue)
+    }
+
+    @Test
+    fun uneSaisieIdentiqueNeCreePasDAnnulation() {
+        val vm = tableGame(GameRules(id = "t", name = "T"))
+        vm.setCell(0, 0, 10, false)
+        vm.undo()
+        vm.setCell(0, 0, null, false)           // la case était déjà vide
+        assertFalse(vm.canUndo)
+    }
+
+    @Test
+    fun annulerUnChangementDeRegleDeMultiplication() {
+        val double = ScoreMultiplier(id = "x2", label = "Double", factor = 2)
+        val rules = GameRules(id = "t", name = "T", multipliers = listOf(GameRules.NORMAL_MULTIPLIER, double))
+        val vm = tableGame(rules)
+        vm.setCell(0, 0, 10, false)
+        vm.setMultiplier(0, 0, "x2")
+        assertEquals(20, vm.totals[0])
+        vm.undo()
+        assertEquals(10, vm.totals[0])
+    }
+
+    @Test
+    fun uneNouvellePartieVideLHistoriqueDAnnulation() {
+        val vm = counterGame()
+        vm.incrementCounter(0, 1)
+        assertTrue(vm.canUndo)
+        vm.initGame(names, GameRules(id = "c", name = "C", scoreMode = ScoreMode.COUNTER))
+        assertFalse(vm.canUndo)
+    }
+
+    // ---------- Partage ----------
+
+    @Test
+    fun leTexteDePartageListeLeClassementEtLeVainqueur() {
+        val vm = tableGame(
+            GameRules(
+                id = "t", name = "Mon jeu",
+                endCondition = EndCondition(type = EndConditionType.SCORE_THRESHOLD, scoreThreshold = 30)
+            )
+        )
+        vm.enter(0, 0, 10)
+        vm.enter(0, 1, 40)
+        vm.enter(0, 2, 20)
+        val text = vm.shareText(RuntimeEnvironment.getApplication())
+        assertTrue(text, text.startsWith("Mon jeu — partie terminée"))
+        assertTrue(text, text.indexOf("Ben : 40") < text.indexOf("Chloé : 20"))
+        assertTrue(text, text.indexOf("Chloé : 20") < text.indexOf("Anna : 10"))
+        assertTrue(text, text.contains("Vainqueur : Ben"))
     }
 
     // ---------- Équipes variables (Tarot) ----------

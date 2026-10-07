@@ -1,5 +1,6 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.material3.minimumInteractiveComponentSize
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,17 +68,17 @@ fun NewTeamRoundScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.93f)),
+            colors = CardDefaults.cardColors(containerColor = cardSurface()),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
                 modifier = Modifier.padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Nouvelle manche", style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(R.string.new_round), style = MaterialTheme.typography.headlineMedium)
 
                 Text(
-                    "Qui prend, pour cette manche ? (preneur, ou preneur + appelé)",
+                    stringResource(R.string.team_who_takes),
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Column {
@@ -80,28 +86,24 @@ fun NewTeamRoundScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    selectedPlayers = if (index in selectedPlayers) {
-                                        selectedPlayers - index
-                                    } else {
-                                        selectedPlayers + index
+                                .toggleable(
+                                    value = index in selectedPlayers,
+                                    role = Role.Checkbox,
+                                    onValueChange = { checked ->
+                                        selectedPlayers = if (checked) selectedPlayers + index else selectedPlayers - index
                                     }
-                                },
+                                ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Checkbox(
-                                checked = index in selectedPlayers,
-                                onCheckedChange = { checked ->
-                                    selectedPlayers = if (checked) selectedPlayers + index else selectedPlayers - index
-                                }
-                            )
+                            // onCheckedChange = null : le clic est géré par la ligne entière (une seule cible pour TalkBack).
+                            Checkbox(checked = index in selectedPlayers, onCheckedChange = null)
                             Text(name)
                         }
                     }
                 }
 
                 if (multipliers.size > 1) {
-                    Text("Contrat", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.contract), style = MaterialTheme.typography.titleSmall)
                     Row(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -118,26 +120,35 @@ fun NewTeamRoundScreen(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (allowNegative) {
+                        val signDescription = stringResource(
+                            if (isNegative) R.string.team_sign_negative else R.string.team_sign_positive
+                        )
                         Text(
                             text = if (isNegative) "−" else "+",
                             fontWeight = FontWeight.Bold,
-                            color = if (isNegative) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = if (isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                            // Un « + » ou « − » seul ne dit rien à TalkBack : rôle, action et état sont décrits,
+                            // et la zone touchable fait au moins 48 dp.
                             modifier = Modifier
-                                .clickable { isNegative = !isNegative }
+                                .minimumInteractiveComponentSize()
+                                .semantics { contentDescription = signDescription }
+                                .clickable(onClickLabel = stringResource(R.string.team_change_sign), role = Role.Button) {
+                                    isNegative = !isNegative
+                                }
                                 .padding(horizontal = 10.dp)
                         )
                     }
                     OutlinedTextField(
                         value = baseValueText,
                         onValueChange = { baseValueText = it.filter { c -> c.isDigit() } },
-                        label = { Text("Score de l'équipe sélectionnée") },
+                        label = { Text(stringResource(R.string.team_score_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f)
                     )
                 }
 
                 Text(
-                    "L'équipe sélectionnée reçoit ce score, tous les autres joueurs reçoivent l'opposé.",
+                    stringResource(R.string.team_score_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -159,7 +170,7 @@ fun NewTeamRoundScreen(
                     enabled = canValidate,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Valider la manche")
+                    Text(stringResource(R.string.validate_round))
                 }
             }
         }

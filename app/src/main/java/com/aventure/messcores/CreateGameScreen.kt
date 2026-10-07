@@ -1,5 +1,6 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -38,6 +39,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 
 /** Brouillon d'une règle en cours de saisie dans le formulaire (multiplicateur + bonus). */
 private data class RuleDraft(val label: String, val factorText: String, val bonusText: String)
@@ -88,12 +91,14 @@ fun CreateGameScreen(
     var stopImmediately by rememberSaveable { mutableStateOf(endCondition?.stopImmediately ?: true) }
     var tieBreakOnEqualLeaders by rememberSaveable { mutableStateOf(endCondition?.tieBreakOnEqualLeaders ?: false) }
 
+    val untitledGame = stringResource(R.string.create_untitled)
+
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp).imePadding(),
         verticalArrangement = Arrangement.Center
     ) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.93f)),
+            colors = CardDefaults.cardColors(containerColor = cardSurface()),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -101,19 +106,19 @@ fun CreateGameScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    if (editing == null) "Nouveau jeu" else "Modifier le jeu",
+                    stringResource(if (editing == null) R.string.create_title_new else R.string.create_title_edit),
                     style = MaterialTheme.typography.headlineMedium
                 )
 
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Nom du jeu") },
+                    label = { Text(stringResource(R.string.create_name)) },
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Mode de score", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.score_mode), style = MaterialTheme.typography.titleSmall)
                     Row(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -121,24 +126,24 @@ fun CreateGameScreen(
                         FilterChip(
                             selected = scoreMode == ScoreMode.TABLE,
                             onClick = { scoreMode = ScoreMode.TABLE },
-                            label = { Text("Tableau (manches)") }
+                            label = { Text(stringResource(R.string.score_mode_table)) }
                         )
                         FilterChip(
                             selected = scoreMode == ScoreMode.COUNTER,
                             onClick = { scoreMode = ScoreMode.COUNTER },
-                            label = { Text("Compteur (+1/-1)") }
+                            label = { Text(stringResource(R.string.score_mode_counter)) }
                         )
                         FilterChip(
                             selected = scoreMode == ScoreMode.VARIABLE_TEAMS,
                             onClick = { scoreMode = ScoreMode.VARIABLE_TEAMS },
-                            label = { Text("Équipes variables") }
+                            label = { Text(stringResource(R.string.score_mode_teams)) }
                         )
                     }
                     Text(
                         text = when (scoreMode) {
-                            ScoreMode.TABLE -> "Manches numérotées, une colonne par joueur (comme aujourd'hui)."
-                            ScoreMode.COUNTER -> "Chaque joueur a un total, avec des boutons +1/-1. Pas de manches."
-                            ScoreMode.VARIABLE_TEAMS -> "À chaque manche, tu choisis qui est dans quelle équipe (ex: Tarot avec appel du roi)."
+                            ScoreMode.TABLE -> stringResource(R.string.create_mode_table_desc)
+                            ScoreMode.COUNTER -> stringResource(R.string.create_mode_counter_desc)
+                            ScoreMode.VARIABLE_TEAMS -> stringResource(R.string.create_mode_teams_desc)
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -147,24 +152,23 @@ fun CreateGameScreen(
 
                 if (scoreMode != ScoreMode.COUNTER) {
                     SettingRow(
-                        title = "Le score le plus bas gagne",
-                        subtitle = "Comme à Skyjo, au lieu du plus haut",
+                        title = stringResource(R.string.create_lowest_title),
+                        subtitle = stringResource(R.string.create_lowest_sub),
                         checked = lowestWins,
                         onCheckedChange = { lowestWins = it }
                     )
 
                     SettingRow(
-                        title = "Autoriser les scores négatifs",
-                        subtitle = "Permet de saisir par exemple -3",
+                        title = stringResource(R.string.create_negative_title),
+                        subtitle = stringResource(R.string.create_negative_sub),
                         checked = allowNegative,
                         onCheckedChange = { allowNegative = it }
                     )
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Règles de score (optionnel)", style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(R.string.create_rules_title), style = MaterialTheme.typography.titleSmall)
                         Text(
-                            "Ex. pour le Tarot : \"Garde\" ×2. Ex. pour la Belote : \"Capot\" ×1 +250. " +
-                                "Un sélecteur apparaîtra ensuite pour choisir la règle à appliquer.",
+                            stringResource(R.string.create_rules_hint),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -181,7 +185,7 @@ fun CreateGameScreen(
                                             it[index] = draft.copy(label = newLabel)
                                         }
                                     },
-                                    label = { Text("Nom") },
+                                    label = { Text(stringResource(R.string.create_rule_name)) },
                                     modifier = Modifier.weight(1f)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -193,7 +197,7 @@ fun CreateGameScreen(
                                             it[index] = draft.copy(factorText = digitsOnly)
                                         }
                                     },
-                                    label = { Text("×") },
+                                    label = { Text(stringResource(R.string.create_rule_factor)) },
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                     modifier = Modifier.width(60.dp)
                                 )
@@ -213,19 +217,19 @@ fun CreateGameScreen(
                                 IconButton(onClick = {
                                     ruleDrafts = ruleDrafts.toMutableList().also { it.removeAt(index) }
                                 }) {
-                                    Icon(Icons.Filled.Close, contentDescription = "Supprimer cette règle")
+                                    Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.create_rule_delete))
                                 }
                             }
                         }
 
                         TextButton(onClick = { ruleDrafts = ruleDrafts + RuleDraft("", "", "") }) {
-                            Text("+ Ajouter une règle")
+                            Text(stringResource(R.string.create_rule_add))
                         }
                     }
                 }
 
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Fin de partie", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.create_end_title), style = MaterialTheme.typography.titleSmall)
                     Row(
                         modifier = Modifier.horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -233,17 +237,17 @@ fun CreateGameScreen(
                         FilterChip(
                             selected = endConditionType == EndConditionType.NONE,
                             onClick = { endConditionType = EndConditionType.NONE },
-                            label = { Text("Aucune") }
+                            label = { Text(stringResource(R.string.create_end_none)) }
                         )
                         FilterChip(
                             selected = endConditionType == EndConditionType.ROUND_COUNT,
                             onClick = { endConditionType = EndConditionType.ROUND_COUNT },
-                            label = { Text("Nombre de manches") }
+                            label = { Text(stringResource(R.string.create_end_rounds)) }
                         )
                         FilterChip(
                             selected = endConditionType == EndConditionType.SCORE_THRESHOLD,
                             onClick = { endConditionType = EndConditionType.SCORE_THRESHOLD },
-                            label = { Text("Score atteint") }
+                            label = { Text(stringResource(R.string.create_end_score)) }
                         )
                     }
                     if (endConditionType != EndConditionType.NONE) {
@@ -252,11 +256,10 @@ fun CreateGameScreen(
                             onValueChange = { endValueText = it.filter { c -> c.isDigit() } },
                             label = {
                                 Text(
-                                    if (endConditionType == EndConditionType.ROUND_COUNT) {
-                                        "Nombre de manches"
-                                    } else {
-                                        "Score seuil"
-                                    }
+                                    stringResource(
+                                        if (endConditionType == EndConditionType.ROUND_COUNT) R.string.create_end_rounds
+                                        else R.string.create_end_threshold
+                                    )
                                 )
                             },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -266,39 +269,39 @@ fun CreateGameScreen(
 
                     if (endConditionType == EndConditionType.SCORE_THRESHOLD) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text("Sens du seuil", style = MaterialTheme.typography.bodySmall)
+                            Text(stringResource(R.string.create_direction), style = MaterialTheme.typography.bodySmall)
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 FilterChip(
                                     selected = thresholdDirection == ThresholdDirection.ABOVE,
                                     onClick = { thresholdDirection = ThresholdDirection.ABOVE },
-                                    label = { Text("Le premier à dépasser") }
+                                    label = { Text(stringResource(R.string.create_dir_above)) }
                                 )
                                 FilterChip(
                                     selected = thresholdDirection == ThresholdDirection.BELOW,
                                     onClick = { thresholdDirection = ThresholdDirection.BELOW },
-                                    label = { Text("Le premier à passer sous") }
+                                    label = { Text(stringResource(R.string.create_dir_below)) }
                                 )
                             }
 
                             if (scoreMode == ScoreMode.TABLE) {
-                                Text("Moment de l'arrêt", style = MaterialTheme.typography.bodySmall)
+                                Text(stringResource(R.string.create_stop_moment), style = MaterialTheme.typography.bodySmall)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     FilterChip(
                                         selected = stopImmediately,
                                         onClick = { stopImmediately = true },
-                                        label = { Text("Dès le seuil franchi") }
+                                        label = { Text(stringResource(R.string.create_stop_now)) }
                                     )
                                     FilterChip(
                                         selected = !stopImmediately,
                                         onClick = { stopImmediately = false },
-                                        label = { Text("Fin de la manche en cours") }
+                                        label = { Text(stringResource(R.string.create_stop_round_end)) }
                                     )
                                 }
                             }
 
                             SettingRow(
-                                title = "Manche décisive si égalité en tête",
-                                subtitle = "Rejoue une manche si plusieurs joueurs sont à égalité au sommet",
+                                title = stringResource(R.string.create_tiebreak_title),
+                                subtitle = stringResource(R.string.create_tiebreak_sub),
                                 checked = tieBreakOnEqualLeaders,
                                 onCheckedChange = { tieBreakOnEqualLeaders = it }
                             )
@@ -333,7 +336,7 @@ fun CreateGameScreen(
                             // copy() : conserve ce que le formulaire ne propose pas (id, nombre de joueurs…).
                             repository.updateCustomGame(
                                 editing.copy(
-                                    name = name.ifBlank { "Jeu sans nom" },
+                                    name = name.ifBlank { untitledGame },
                                     lowestWins = lowestWins,
                                     allowNegativeScores = allowNegative,
                                     multipliers = listOf(GameRules.NORMAL_MULTIPLIER) + customRules,
@@ -345,7 +348,7 @@ fun CreateGameScreen(
                         } else {
                             val rules = GameRules(
                                 id = repository.newId(),
-                                name = name.ifBlank { "Jeu sans nom" },
+                                name = name.ifBlank { untitledGame },
                                 lowestWins = lowestWins,
                                 allowNegativeScores = allowNegative,
                                 multipliers = listOf(GameRules.NORMAL_MULTIPLIER) + customRules,
@@ -358,7 +361,7 @@ fun CreateGameScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (editing == null) "Créer et commencer" else "Enregistrer les modifications")
+                    Text(stringResource(if (editing == null) R.string.create_submit_new else R.string.create_submit_edit))
                 }
             }
         }
@@ -372,14 +375,17 @@ private fun SettingRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    // La ligne entière est l'interrupteur : TalkBack annonce le titre avec l'état.
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(title)
             Text(subtitle, style = MaterialTheme.typography.bodySmall)
         }
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }

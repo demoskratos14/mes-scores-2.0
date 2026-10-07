@@ -1,5 +1,6 @@
 package com.aventure.messcores
 
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -59,6 +60,27 @@ data class TarotRoundInput(
 )
 
 /**
+ * Une saisie annulable (modes TABLE et COUNTER). Les manches à équipes variables (Tarot) ont
+ * déjà leur propre suppression/correction dans l'historique des manches.
+ */
+sealed interface UndoAction {
+    /** Un appui sur +/− d'un compteur : [delta] a été ajouté au joueur [player]. */
+    data class CounterChange(val player: Int, val delta: Int) : UndoAction
+
+    /**
+     * Une modification de la case (manche [round], joueur [player]) : [before] est son état
+     * d'avant. [addedRound] vaut vrai si cette saisie a fait ajouter automatiquement une
+     * nouvelle manche vide à la fin, qu'il faut alors retirer en annulant.
+     */
+    data class CellEdit(
+        val round: Int,
+        val player: Int,
+        val before: CellSnapshot,
+        val addedRound: Boolean
+    ) : UndoAction
+}
+
+/**
  * Gère l'état complet d'une partie, quel que soit son [ScoreMode] :
  * - la liste des noms de joueurs et les règles du jeu choisi
  * - une couleur distincte assignée aléatoirement à chaque joueur
@@ -113,8 +135,17 @@ class ScoreViewModel : ViewModel() {
     private val _teamRounds = mutableStateListOf<TeamRound>()
     val teamRounds: List<TeamRound> get() = _teamRounds
 
+    // --- Annulation (modes TABLE et COUNTER) ---
+    private val _undoStack = mutableStateListOf<UndoAction>()
+
+    /** Vrai s'il y a une saisie à annuler (pour activer le bouton « Annuler »). */
+    val canUndo: Boolean get() = _undoStack.isNotEmpty()
+
     companion object {
         private const val INITIAL_ROUNDS = 5
+
+        /** Nombre maximal de saisies mémorisées pour l'annulation. */
+        private const val MAX_UNDO = 100
 
         // Palette de couleurs suffisamment contrastées entre elles pour rester lisibles
         // une fois utilisées comme fond de case ou comme couleur de texte.
@@ -134,6 +165,7 @@ class ScoreViewModel : ViewModel() {
         savedBaseline = null
         gameActive = true
         editingTeamRoundIndex = null
+        _undoStack.clear()
         _scores.clear()
         _counters.clear()
         _teamRounds.clear()
@@ -157,6 +189,7 @@ class ScoreViewModel : ViewModel() {
         } else {
             assignColors(saved.players.size)
         }
+        _undoStack.clear()
         _scores.clear()
         _counters.clear()
         _teamRounds.clear()
@@ -210,6 +243,7 @@ class ScoreViewModel : ViewModel() {
         gameActive = false
         currentSaveId = null
         savedBaseline = null
+        _undoStack.clear()
     }
 
     /** Enregistrement voulu par l'utilisateur (bouton « Enregistrer », « Enregistrer et quitter »). */
@@ -270,12 +304,41 @@ class ScoreViewModel : ViewModel() {
      * À appeler après toute modification d'une case (valeur, signe ou règle appliquée).
      * Ajoute une nouvelle manche vide si la dernière manche existante contient
      * désormais au moins un score, sauf si la partie est déjà terminée.
+     * Renvoie vrai si une manche a été ajoutée.
      */
-    fun notifyCellChanged(round: Int) {
-        if (isGameOver()) return
+    fun notifyCellChanged(round: Int): Boolean {
+        if (isGameOver()) return false
         if (round == _scores.lastIndex && _scores[round].any { it.baseValue != null }) {
             addRound()
+            return true
         }
+        return false
+    }
+
+    /**
+     * Saisie d'un score dans la case (manche [round], joueur [player]) : l'état d'avant est
+     * mémorisé pour [undo]. Sans effet (et rien à annuler) si la case ne change pas.
+     */
+    fun setCell(round: Int, player: Int, baseValue: Int?, isNegative: Boolean) {
+        val cell = _scores.getOrNull(round)?.getOrNull(player) ?: return
+        // Un signe « − » sans valeur n'a pas de sens : une case vide reste positive.
+        val negative = if (baseValue == null) false else isNegative
+        if (cell.baseValue == baseValue && cell.isNegative == negative) return
+        val before = CellSnapshot(cell.baseValue, cell.isNegative, cell.multiplierId)
+        cell.baseValue = baseValue
+        cell.isNegative = negative
+        val added = notifyCellChanged(round)
+        pushUndo(UndoAction.CellEdit(round, player, before, added))
+    }
+
+    /** Change la règle de multiplication appliquée à une case (annulable comme [setCell]). */
+    fun setMultiplier(round: Int, player: Int, multiplierId: String) {
+        val cell = _scores.getOrNull(round)?.getOrNull(player) ?: return
+        if (cell.multiplierId == multiplierId) return
+        val before = CellSnapshot(cell.baseValue, cell.isNegative, cell.multiplierId)
+        cell.multiplierId = multiplierId
+        val added = notifyCellChanged(round)
+        pushUndo(UndoAction.CellEdit(round, player, before, added))
     }
 
     private fun effectiveValue(base: Int, isNegative: Boolean, multiplierId: String): Int {
@@ -295,6 +358,38 @@ class ScoreViewModel : ViewModel() {
         if (isGameOver()) return
         if (player !in _counters.indices) return
         _counters[player] = _counters[player] + delta
+        pushUndo(UndoAction.CounterChange(player, delta))
+    }
+
+    // ---------- Annulation ----------
+
+    private fun pushUndo(action: UndoAction) {
+        _undoStack.add(action)
+        if (_undoStack.size > MAX_UNDO) _undoStack.removeAt(0)
+    }
+
+    /** Annule la dernière saisie (case du tableau ou appui sur un compteur). Sans effet s'il n'y en a pas. */
+    fun undo() {
+        val action = _undoStack.removeLastOrNull() ?: return
+        when (action) {
+            is UndoAction.CounterChange -> {
+                if (action.player in _counters.indices) {
+                    _counters[action.player] = _counters[action.player] - action.delta
+                }
+            }
+            is UndoAction.CellEdit -> {
+                val cell = _scores.getOrNull(action.round)?.getOrNull(action.player) ?: return
+                cell.baseValue = action.before.baseValue
+                cell.isNegative = action.before.isNegative
+                cell.multiplierId = action.before.multiplierId
+                // Retire la manche vide que cette saisie avait fait ajouter automatiquement.
+                if (action.addedRound && _scores.lastIndex == action.round + 1 &&
+                    _scores.last().all { it.baseValue == null }
+                ) {
+                    _scores.removeAt(_scores.lastIndex)
+                }
+            }
+        }
     }
 
     // ---------- Mode VARIABLE_TEAMS ----------
@@ -383,6 +478,20 @@ class ScoreViewModel : ViewModel() {
         ScoreMode.TABLE -> _scores.count { round -> round.any { it.baseValue != null } }
         ScoreMode.VARIABLE_TEAMS -> _teamRounds.size
         ScoreMode.COUNTER -> 0
+    }
+
+    /** Classement actuel en texte, prêt à être partagé (voir [ResultText]). */
+    fun shareText(context: Context): String {
+        val all = totals
+        return ResultText.game(
+            context = context,
+            gameName = gameRules.name,
+            players = players,
+            totals = all,
+            ranks = ranksFor(all),
+            finished = isGameOver(),
+            winners = winners()
+        )
     }
 
     /** Vrai si la condition de fin de partie définie par les règles du jeu est atteinte. */

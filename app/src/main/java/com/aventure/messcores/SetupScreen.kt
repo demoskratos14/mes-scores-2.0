@@ -1,9 +1,11 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
 import android.content.Context
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -15,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -40,9 +43,13 @@ import org.json.JSONArray
 fun SetupScreen(
     onNext: (List<String>) -> Unit,
     onOpenJournal: () -> Unit,
+    onOpenStats: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     onOpenTournament: () -> Unit
 ) {
     val context = LocalContext.current
+    val playerPrefix = stringResource(R.string.player_default)
     // Noms de la dernière partie lancée, pour ne pas les retaper à chaque fois.
     val savedNames = remember { loadLastPlayerNames(context) }
 
@@ -81,7 +88,7 @@ fun SetupScreen(
         ) {
         Card(
             colors = CardDefaults.cardColors(
-                containerColor = Color.White.copy(alpha = 0.93f)
+                containerColor = cardSurface()
             ),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -90,14 +97,14 @@ fun SetupScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    text = "Nouvelle partie",
+                    text = stringResource(R.string.setup_title),
                     style = MaterialTheme.typography.headlineMedium
                 )
 
                 OutlinedTextField(
                     value = playerCountText,
                     onValueChange = { input -> playerCountText = input.filter { it.isDigit() } },
-                    label = { Text("Nombre de joueurs") },
+                    label = { Text(stringResource(R.string.setup_player_count)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -112,35 +119,67 @@ fun SetupScreen(
                             onValueChange = { newName ->
                                 names = names.toMutableList().also { it[index] = newName }
                             },
-                            label = { Text("Nom du joueur ${index + 1}") },
+                            label = { Text(stringResource(R.string.setup_player_name, index + 1)) },
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
 
+                // Prévient avant de continuer si des noms identiques vont être numérotés.
+                val duplicateNotice = duplicateNoticeText(context, names, playerPrefix)
+                if (duplicateNotice != null) {
+                    Text(
+                        text = duplicateNotice,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
                 Button(
                     onClick = {
                         saveLastPlayerNames(context, names)
-                        val finalNames = names.mapIndexed { i, n -> n.ifBlank { "Joueur ${i + 1}" } }
-                        onNext(finalNames)
+                        onNext(PlayerNames.resolve(names, playerPrefix))
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Continuer")
+                    Text(stringResource(R.string.common_continue))
                 }
 
                 OutlinedButton(
                     onClick = onOpenTournament,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Nouveau championnat")
+                    Text(stringResource(R.string.new_championship))
                 }
 
-                TextButton(
-                    onClick = onOpenJournal,
-                    modifier = Modifier.fillMaxWidth()
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text("Journal des parties")
+                    TextButton(onClick = onOpenJournal, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.journal_title))
+                    }
+                    TextButton(onClick = onOpenStats, modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.stats_title))
+                    }
+                }
+
+                // Apparence : Auto suit le réglage clair / sombre du téléphone.
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = stringResource(R.string.setup_appearance),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ThemeMode.values().forEach { mode ->
+                            FilterChip(
+                                selected = themeMode == mode,
+                                onClick = { onThemeModeChange(mode) },
+                                label = { Text(stringResource(mode.labelRes)) }
+                            )
+                        }
+                    }
                 }
             }
         }

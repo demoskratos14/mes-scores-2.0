@@ -1,5 +1,8 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -98,6 +101,8 @@ fun NewTarotRoundScreen(
     val partner = if (hasPartnerChoice && partnerIndex != taker) partnerIndex else null
     val multiplier = multipliers.getOrElse(multiplierIndex) { multipliers.first() }
 
+    val context = LocalContext.current
+
     // ----- Calcul (voir TarotScoring.kt) -----
     val required = tarotRequiredPoints(bouts)
     val result = points?.let {
@@ -129,7 +134,7 @@ fun NewTarotRoundScreen(
             .imePadding()
     ) {
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.93f)),
+            colors = CardDefaults.cardColors(containerColor = cardSurface()),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -137,32 +142,32 @@ fun NewTarotRoundScreen(
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Text(
-                    if (editing != null) "Modifier la manche" else "Nouvelle manche",
+                    stringResource(if (editing != null) R.string.tarot_title_edit else R.string.new_round),
                     style = MaterialTheme.typography.headlineMedium
                 )
 
-                Text("Preneur", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.tarot_taker), style = MaterialTheme.typography.titleSmall)
                 ChoiceRow(players, takerIndex) { takerIndex = it }
 
                 if (hasPartnerChoice) {
-                    Text("Joueur appelé (partenaire)", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.tarot_partner), style = MaterialTheme.typography.titleSmall)
                     val others = players.indices.filter { it != taker }
                     ChoiceRow(
-                        options = listOf("Aucun (seul)") + others.map { players[it] },
+                        options = listOf(stringResource(R.string.tarot_partner_none)) + others.map { players[it] },
                         selected = partner?.let { others.indexOf(it) + 1 } ?: 0
                     ) { choice -> partnerIndex = if (choice == 0) null else others[choice - 1] }
                 }
 
-                Text("Contrat", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.contract), style = MaterialTheme.typography.titleSmall)
                 ChoiceRow(
                     options = multipliers.map { "${it.label} ×${it.factor}" },
                     selected = multiplierIndex
                 ) { multiplierIndex = it }
 
-                Text("Bouts du preneur", style = MaterialTheme.typography.titleSmall)
-                ChoiceRow(listOf("0 bout", "1 bout", "2 bouts", "3 bouts"), bouts) { bouts = it }
+                Text(stringResource(R.string.tarot_bouts_title), style = MaterialTheme.typography.titleSmall)
+                ChoiceRow(List(4) { context.quantity(R.plurals.tarot_bouts, it) }, bouts) { bouts = it }
                 Text(
-                    "Contrat à réaliser : $required points",
+                    stringResource(R.string.tarot_required, required),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -170,46 +175,54 @@ fun NewTarotRoundScreen(
                 OutlinedTextField(
                     value = pointsText,
                     onValueChange = { pointsText = it.filter { c -> c.isDigit() }.take(2) },
-                    label = { Text("Points réalisés par le preneur (0 à 91)") },
+                    label = { Text(stringResource(R.string.tarot_points_label)) },
                     isError = pointsText.isNotEmpty() && points == null,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("Petit au bout", style = MaterialTheme.typography.titleSmall)
-                ChoiceRow(listOf("Aucun", "Preneur", "Défense"), petitAuBout) { petitAuBout = it }
-
-                Text("Poignée", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.tarot_petit), style = MaterialTheme.typography.titleSmall)
                 ChoiceRow(
-                    listOf("Aucune", "Simple 20", "Double 30", "Triple 40"),
+                    listOf(stringResource(R.string.tarot_none), stringResource(R.string.tarot_taker), stringResource(R.string.tarot_defense)),
+                    petitAuBout
+                ) { petitAuBout = it }
+
+                Text(stringResource(R.string.tarot_handful), style = MaterialTheme.typography.titleSmall)
+                ChoiceRow(
+                    listOf(
+                        stringResource(R.string.tarot_handful_none),
+                        stringResource(R.string.tarot_handful_single),
+                        stringResource(R.string.tarot_handful_double),
+                        stringResource(R.string.tarot_handful_triple)
+                    ),
                     handful
                 ) { handful = it }
                 handfulThresholds(players.size)?.let {
                     Text(
-                        "Atouts à montrer (simple / double / triple) : $it",
+                        stringResource(R.string.tarot_handful_thresholds, it),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
-                Text("Chelem", style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(R.string.tarot_slam), style = MaterialTheme.typography.titleSmall)
                 ChoiceRow(
-                    options = listOf("Non annoncé", "Annoncé par le preneur"),
+                    options = listOf(stringResource(R.string.tarot_slam_not_announced), stringResource(R.string.tarot_slam_announced)),
                     selected = if (slamAnnounced) 1 else 0
                 ) { slamAnnounced = it == 1 }
                 if (contractFailed) {
                     ChoiceRow(
-                        options = listOf("La défense n'a pas fait tous les plis", "Chelem de la défense"),
+                        options = listOf(stringResource(R.string.tarot_defense_not_all), stringResource(R.string.tarot_defense_slam)),
                         selected = if (defenseSlam) 1 else 0
                     ) { defenseSlam = it == 1 }
                 }
                 val slamHint = when {
-                    slamSucceeded && slamAnnounced -> "91 points : chelem annoncé réussi (+400)"
-                    slamSucceeded -> "91 points : chelem réussi non annoncé (+200)"
-                    defenseSlamActive -> "Chelem de la défense : +$DEFENSE_SLAM_PRIZE pour les défenseurs (règle maison)"
-                    slamAnnounced && points != null -> "Chelem annoncé mais raté (−200)"
-                    else -> "Le chelem réussi est ajouté automatiquement à 91 points."
+                    slamSucceeded && slamAnnounced -> stringResource(R.string.tarot_hint_announced_ok)
+                    slamSucceeded -> stringResource(R.string.tarot_hint_unannounced_ok)
+                    defenseSlamActive -> stringResource(R.string.tarot_hint_defense, DEFENSE_SLAM_PRIZE)
+                    slamAnnounced && points != null -> stringResource(R.string.tarot_hint_announced_failed)
+                    else -> stringResource(R.string.tarot_hint_default)
                 }
                 Text(
                     slamHint,
@@ -222,7 +235,8 @@ fun NewTarotRoundScreen(
                 if (taker != null && result != null && preview != null) {
                     Card(
                         colors = CardDefaults.cardColors(
-                            containerColor = if (success) Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                            containerColor = if (success) successContainer() else failureContainer(),
+                            contentColor = MaterialTheme.colorScheme.onSurface
                         ),
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -232,14 +246,14 @@ fun NewTarotRoundScreen(
                         ) {
                             Text(
                                 text = if (success) {
-                                    "Contrat réussi de ${result.difference} point(s)"
+                                    context.resources.getQuantityString(R.plurals.tarot_contract_success, result.difference, result.difference)
                                 } else {
-                                    "Contrat chuté de ${-result.difference} point(s)"
+                                    context.resources.getQuantityString(R.plurals.tarot_contract_failed, -result.difference, -result.difference)
                                 },
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                "Score par défenseur : ${signed(-result.unit)}",
+                                stringResource(R.string.tarot_per_defender, signed(-result.unit)),
                                 style = MaterialTheme.typography.bodySmall
                             )
                             players.forEachIndexed { index, name ->
@@ -257,14 +271,19 @@ fun NewTarotRoundScreen(
                         val unit = result?.unit ?: return@Button
                         val attackers = setOfNotNull(takerId, partner)
                         val team = attackers.joinToString(" + ") { players[it] }
-                        val label = "$team · ${multiplier.label} · " +
-                            "$bouts bout${if (bouts > 1) "s" else ""} · $points pts " +
-                            (if (success) "(réussi)" else "(chuté)") +
+                        val label = context.getString(
+                            R.string.tarot_label,
+                            team,
+                            multiplier.label,
+                            context.quantity(R.plurals.tarot_bouts, bouts),
+                            pointsMade,
+                            context.getString(if (success) R.string.tarot_label_success else R.string.tarot_label_failed),
                             when {
-                                slamSucceeded -> " · chelem"
-                                defenseSlamActive -> " · chelem de la défense"
+                                slamSucceeded -> context.getString(R.string.tarot_label_slam)
+                                defenseSlamActive -> context.getString(R.string.tarot_label_defense_slam)
                                 else -> ""
                             }
+                        )
                         val round = TeamRound(
                             teamALabel = label,
                             teamAPlayers = attackers,
@@ -293,7 +312,7 @@ fun NewTarotRoundScreen(
                     enabled = canValidate,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (editing != null) "Enregistrer la modification" else "Valider la manche")
+                    Text(stringResource(if (editing != null) R.string.tarot_submit_edit else R.string.validate_round))
                 }
             }
         }

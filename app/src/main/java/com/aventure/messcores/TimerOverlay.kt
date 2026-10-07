@@ -1,5 +1,7 @@
 package com.aventure.messcores
 
+import androidx.compose.ui.res.stringResource
+import android.content.Context
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
@@ -43,6 +45,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -57,6 +65,20 @@ private fun formatMillis(ms: Long, roundUp: Boolean = false): String {
     return "%02d:%02d".format(minutes, seconds)
 }
 
+/** Le temps tel que TalkBack doit le dire : « 5 minutes 30 secondes » plutôt que « 05:30 ». */
+private fun spokenTime(context: Context, ms: Long, roundUp: Boolean = false): String {
+    val totalSeconds = (if (roundUp) (ms + 999) / 1000 else ms / 1000).coerceAtLeast(0)
+    val minutes = totalSeconds / 60
+    val seconds = totalSeconds % 60
+    val minutesText = context.resources.getQuantityString(R.plurals.spoken_minutes, minutes.toInt(), minutes)
+    val secondsText = context.resources.getQuantityString(R.plurals.spoken_seconds, seconds.toInt(), seconds)
+    return when {
+        minutes == 0L -> secondsText
+        seconds == 0L -> minutesText
+        else -> context.getString(R.string.spoken_minutes_seconds, minutesText, secondsText)
+    }
+}
+
 /**
  * Badge affiché en superposition sur tous les écrans de l'app (voir MainActivity.kt),
  * affichant en permanence le temps du chronomètre/minuteur. Cliquer dessus ouvre la
@@ -64,6 +86,7 @@ private fun formatMillis(ms: Long, roundUp: Boolean = false): String {
  */
 @Composable
 fun TimerOverlay(viewModel: TimerViewModel) {
+    val context = LocalContext.current
     // rememberSaveable : la fenêtre du minuteur reste ouverte après une rotation de l'écran.
     var showDialog by rememberSaveable { mutableStateOf(false) }
     val displayMillis = if (viewModel.mode == TimerMode.STOPWATCH) {
@@ -94,16 +117,34 @@ fun TimerOverlay(viewModel: TimerViewModel) {
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         contentAlignment = Alignment.BottomEnd
     ) {
+        // TalkBack : sans ces précisions, le badge est lu « 05:00 » sans dire que c'est un bouton.
+        val badgeDescription = context.getString(
+            R.string.timer_badge_description,
+            context.getString(if (viewModel.mode == TimerMode.STOPWATCH) R.string.timer_stopwatch else R.string.timer_countdown),
+            spokenTime(context, displayMillis, roundUp = viewModel.mode == TimerMode.COUNTDOWN),
+            context.getString(
+                when {
+                    viewModel.justFinished -> R.string.timer_status_finished
+                    viewModel.isRunning -> R.string.timer_status_running
+                    else -> R.string.timer_status_stopped
+                }
+            )
+        )
         Card(
             colors = CardDefaults.cardColors(containerColor = badgeColor),
-            modifier = Modifier.clickable { showDialog = true }
+            modifier = Modifier.clickable(
+                onClickLabel = stringResource(R.string.timer_open_settings),
+                role = Role.Button
+            ) { showDialog = true }
         ) {
             Text(
                 text = formatMillis(displayMillis, roundUp = viewModel.mode == TimerMode.COUNTDOWN),
                 color = Color.White,
                 fontWeight = FontWeight.Bold,
                 style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)
+                modifier = Modifier
+                    .padding(horizontal = 18.dp, vertical = 12.dp)
+                    .clearAndSetSemantics { contentDescription = badgeDescription }
             )
         }
     }
@@ -123,21 +164,21 @@ private fun TimerDialog(viewModel: TimerViewModel, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            OutlinedButton(onClick = onDismiss) { Text("Fermer") }
+            OutlinedButton(onClick = onDismiss) { Text(stringResource(R.string.common_close)) }
         },
-        title = { Text("Chronomètre") },
+        title = { Text(stringResource(R.string.timer_stopwatch)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = viewModel.mode == TimerMode.STOPWATCH,
                         onClick = { viewModel.selectMode(TimerMode.STOPWATCH) },
-                        label = { Text("Chronomètre") }
+                        label = { Text(stringResource(R.string.timer_stopwatch)) }
                     )
                     FilterChip(
                         selected = viewModel.mode == TimerMode.COUNTDOWN,
                         onClick = { viewModel.selectMode(TimerMode.COUNTDOWN) },
-                        label = { Text("Minuteur") }
+                        label = { Text(stringResource(R.string.timer_countdown)) }
                     )
                 }
 
@@ -148,7 +189,7 @@ private fun TimerDialog(viewModel: TimerViewModel, onDismiss: () -> Unit) {
                             minutesText = input.filter { it.isDigit() }
                             minutesText.toIntOrNull()?.let { viewModel.setCountdownMinutes(it) }
                         },
-                        label = { Text("Durée (minutes)") },
+                        label = { Text(stringResource(R.string.timer_duration)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -165,17 +206,23 @@ private fun TimerDialog(viewModel: TimerViewModel, onDismiss: () -> Unit) {
                     style = MaterialTheme.typography.displayMedium,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    color = if (viewModel.justFinished) Color(0xFFD32F2F) else MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth()
+                    color = if (viewModel.justFinished) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clearAndSetSemantics {
+                            contentDescription = spokenTime(context, displayMillis, roundUp = viewModel.mode == TimerMode.COUNTDOWN)
+                        }
                 )
 
                 if (viewModel.justFinished) {
                     Text(
-                        text = "Temps écoulé !",
-                        color = Color(0xFFD32F2F),
+                        text = stringResource(R.string.timer_finished_banner),
+                        color = MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { liveRegion = LiveRegionMode.Assertive }
                     )
                 }
 
@@ -198,12 +245,12 @@ private fun TimerDialog(viewModel: TimerViewModel, onDismiss: () -> Unit) {
                             contentDescription = null
                         )
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (viewModel.isRunning) "Pause" else "Démarrer")
+                        Text(stringResource(if (viewModel.isRunning) R.string.timer_pause else R.string.timer_start))
                     }
                     OutlinedButton(onClick = { viewModel.reset() }) {
                         Icon(Icons.Filled.Refresh, contentDescription = null)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Réinitialiser")
+                        Text(stringResource(R.string.timer_reset))
                     }
                 }
             }
