@@ -55,6 +55,19 @@ jobs:
           path: app/build/reports/tests/
           if-no-files-found: ignore
 
+      # Lint Android : API dépréciées, problèmes d'accessibilité, ressources inutilisées, etc.
+      # Les erreurs bloquent le workflow ; les avertissements restent consultables dans le rapport.
+      - name: Lancer le lint
+        run: ./gradlew lintDebug --stacktrace
+
+      - name: Publier le rapport de lint
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "Rapport de lint"
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+
       - name: Construire l'APK (debug)
         run: ./gradlew assembleDebug --stacktrace
 
@@ -64,6 +77,14 @@ jobs:
           name: "Mes scores (debug)"
           path: "app/build/outputs/apk/debug/Mes scores-debug.apk"
           if-no-files-found: error
+
+      # La release est minifiée par R8 (isMinifyEnabled) : une règle manquante peut casser l'APK release
+      # sans jamais gêner le debug. On la construit donc à chaque push, non signée (aucun secret requis),
+      # pour que le problème se voie tout de suite et non au moment de publier.
+      # Quand la release signée est demandée, l'étape ci-dessous la construit déjà : pas de doublon.
+      - name: Vérifier que la release (R8) se construit
+        if: ${{ !inputs.release }}
+        run: ./gradlew assembleRelease --stacktrace
 
       # --- Release signée : uniquement à la demande (Actions > Run workflow > release) ---
       # Secrets à créer dans Settings > Secrets and variables > Actions :
