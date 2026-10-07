@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">Mes Scores</string>
 
     <string name="common_ok">OK</string>
@@ -35,7 +35,7 @@
     <string name="choose_delete_message">Le jeu disparaît de la liste. Les parties déjà enregistrées au journal sont conservées.</string>
     <string name="choose_error_too_few">%1$s se joue à %2$s. Tu as saisi %3$s : il en faut au moins %4$d. Reviens en arrière pour en ajouter.</string>
     <string name="choose_error_too_many">%1$s se joue à %2$s. Tu as saisi %3$s : il n\'en faut pas plus de %4$d. Reviens en arrière pour en retirer.</string>
-    <string name="choose_players_range">%1$d à %2$d joueurs</string>
+    <string name="choose_players_range" tools:ignore="PluralsCandidate">%1$d à %2$d joueurs</string>
     <string name="rule_lowest_wins">le plus petit score gagne</string>
     <string name="rule_highest_wins">le plus grand score gagne</string>
     <string name="rule_negatives_allowed">scores négatifs autorisés</string>
@@ -51,7 +51,7 @@
     <string name="create_lowest_title">Le score le plus bas gagne</string>
     <string name="create_lowest_sub">Comme à Skyjo, au lieu du plus haut</string>
     <string name="create_negative_title">Autoriser les scores négatifs</string>
-    <string name="create_negative_sub">Permet de saisir par exemple -3</string>
+    <string name="create_negative_sub" tools:ignore="Typos">Permet de saisir par exemple -3</string>
     <string name="create_rules_title">Règles de score (optionnel)</string>
     <string name="create_rules_hint">Ex. pour le Tarot : \"Garde\" ×2. Ex. pour la Belote : \"Capot\" ×1 +250. Un sélecteur apparaîtra ensuite pour choisir la règle à appliquer.</string>
     <string name="create_rule_name">Nom</string>
@@ -91,14 +91,14 @@
     <string name="setup_appearance">Apparence</string>
     <string name="tsetup_format">Format</string>
     <string name="tsetup_knockout_desc">Le perdant est éliminé. Demi-finales, finale et petite finale sont générées automatiquement.</string>
-    <string name="tsetup_round_robin_desc">Tout le monde rencontre tout le monde, le classement se fait aux victoires. %1$d participants au maximum.</string>
+    <string name="tsetup_round_robin_desc" tools:ignore="PluralsCandidate">Tout le monde rencontre tout le monde, le classement se fait aux victoires. %1$d participants au maximum.</string>
     <string name="tsetup_bracket">Tableau</string>
     <string name="tsetup_draw">Tirage au sort</string>
     <string name="tsetup_draw_desc">L\'ordre du tableau est mélangé.</string>
     <string name="tsetup_list_order">Ordre de la liste</string>
     <string name="tsetup_list_order_desc">Les participants s\'affrontent dans l\'ordre saisi : le 1er contre le 2e, le 3e contre le 4e… S\'il manque des joueurs pour remplir le tableau, les derniers de la liste sont qualifiés d\'office.</string>
     <string name="tsetup_count">Nombre de participants</string>
-    <string name="tsetup_max">Maximum %1$d participants pour ce format.</string>
+    <string name="tsetup_max" tools:ignore="PluralsCandidate">Maximum %1$d participants pour ce format.</string>
     <string name="tsetup_participant">Participant %1$d</string>
     <string name="tsetup_start_round_robin">Générer les poules et commencer</string>
     <string name="tsetup_start">Commencer</string>
@@ -147,7 +147,7 @@
     <string name="error_unknown">erreur inconnue</string>
     <string name="history_file_unreadable">fichier illisible</string>
     <string name="history_import_failed">Échec de l\'import : %1$s.</string>
-    <string name="history_limit">Les %1$d dernières parties sont conservées.</string>
+    <string name="history_limit" tools:ignore="PluralsCandidate">Les %1$d dernières parties sont conservées.</string>
     <string name="history_clear_finished">Effacer les terminées</string>
     <string name="history_export">Exporter</string>
     <string name="history_import">Importer</string>
@@ -176,7 +176,7 @@
     <string name="stats_card_description">%1$d. %2$s, %3$s</string>
     <string name="stats_card_description_scores">%1$d. %2$s, %3$s, %4$s</string>
     <string name="stats_position_name">%1$d. %2$s</string>
-    <string name="stats_scope">Calculées sur %1$s du journal%2$s. Le journal garde les %3$d dernières parties.</string>
+    <string name="stats_scope" tools:ignore="PluralsCandidate">Calculées sur %1$s du journal%2$s. Le journal garde les %3$d dernières parties.</string>
     <string name="stats_none">Aucune partie terminée dans le journal pour l\'instant. Les statistiques se construisent à partir des parties terminées et enregistrées.</string>
     <string name="stats_none_with_ongoing">Aucune partie terminée dans le journal pour l\'instant. Les statistiques se construisent à partir des parties terminées et enregistrées (les parties en cours ne comptent pas encore).</string>
     <string name="score_game_over">Partie terminée</string>
@@ -212,7 +212,7 @@
     <string name="tarot_partner">Joueur appelé (partenaire)</string>
     <string name="tarot_partner_none">Aucun (seul)</string>
     <string name="tarot_bouts_title">Bouts du preneur</string>
-    <string name="tarot_required">Contrat à réaliser : %1$d points</string>
+    <string name="tarot_required" tools:ignore="PluralsCandidate">Contrat à réaliser : %1$d points</string>
     <string name="tarot_points_label">Points réalisés par le preneur (0 à 91)</string>
     <string name="tarot_petit">Petit au bout</string>
     <string name="tarot_none">Aucun</string>
@@ -230,7 +230,7 @@
     <string name="tarot_defense_slam">Chelem de la défense</string>
     <string name="tarot_hint_announced_ok">91 points : chelem annoncé réussi (+400)</string>
     <string name="tarot_hint_unannounced_ok">91 points : chelem réussi non annoncé (+200)</string>
-    <string name="tarot_hint_defense">Chelem de la défense : +%1$d pour les défenseurs (règle maison)</string>
+    <string name="tarot_hint_defense" tools:ignore="PluralsCandidate">Chelem de la défense : +%1$d pour les défenseurs (règle maison)</string>
     <string name="tarot_hint_announced_failed">Chelem annoncé mais raté (−200)</string>
     <string name="tarot_hint_default">Le chelem réussi est ajouté automatiquement à 91 points.</string>
     <string name="tarot_per_defender">Score par défenseur : %1$s</string>

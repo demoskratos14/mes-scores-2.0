@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -87,11 +88,11 @@ fun NewTarotRoundScreen(
     var takerIndex by rememberSaveable { mutableStateOf<Int?>(editing?.taker) }
     // Index d'un joueur ; null = pas de partenaire (preneur seul).
     var partnerIndex by rememberSaveable { mutableStateOf<Int?>(editing?.partner) }
-    var multiplierIndex by rememberSaveable { mutableStateOf(editing?.multiplierIndex ?: 0) }
-    var bouts by rememberSaveable { mutableStateOf(editing?.bouts ?: 0) }
+    var multiplierIndex by rememberSaveable { mutableIntStateOf(editing?.multiplierIndex ?: 0) }
+    var bouts by rememberSaveable { mutableIntStateOf(editing?.bouts ?: 0) }
     var pointsText by rememberSaveable { mutableStateOf(editing?.points?.toString() ?: "") }
-    var petitAuBout by rememberSaveable { mutableStateOf(editing?.petitAuBout ?: 0) } // 0 aucun, 1 preneur, 2 défense
-    var handful by rememberSaveable { mutableStateOf(editing?.handful ?: 0) }         // 0 aucune, 1 simple, 2 double, 3 triple
+    var petitAuBout by rememberSaveable { mutableIntStateOf(editing?.petitAuBout ?: 0) } // 0 aucun, 1 preneur, 2 défense
+    var handful by rememberSaveable { mutableIntStateOf(editing?.handful ?: 0) }         // 0 aucune, 1 simple, 2 double, 3 triple
     var slamAnnounced by rememberSaveable { mutableStateOf(editing?.slamAnnounced ?: false) } // chelem annoncé par le preneur
     var defenseSlam by rememberSaveable { mutableStateOf(editing?.defenseSlam ?: false) }     // la défense a fait tous les plis
 

@@ -79,7 +79,8 @@ MesScores/
                 ├── values/strings.xml
                 ├── xml/data_extraction_rules.xml, backup_rules.xml   sauvegarde Android (SharedPreferences)
                 ├── drawable-nodpi/bg_board_games.webp
-                └── mipmap-*/ic_launcher*.png
+                ├── mipmap-anydpi/ic_launcher.xml, ic_launcher_round.xml   icône adaptative (+ monochrome)
+                └── mipmap-*/ic_launcher_foreground.png
 ```
 
 ## Statistiques, apparence, formats de championnat

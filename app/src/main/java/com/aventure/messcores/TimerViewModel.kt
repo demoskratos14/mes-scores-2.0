@@ -1,5 +1,6 @@
 package com.aventure.messcores
 
+import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.Application
 import android.app.PendingIntent
@@ -7,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -31,15 +33,15 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     /** Temps écoulé, utilisé en mode chronomètre. */
-    var elapsedMillis by mutableStateOf(0L)
+    var elapsedMillis by mutableLongStateOf(0L)
         private set
 
     /** Durée totale du minuteur, réglable avant de le démarrer. */
-    var countdownDurationMillis by mutableStateOf(5 * 60 * 1000L)
+    var countdownDurationMillis by mutableLongStateOf(5 * 60 * 1000L)
         private set
 
     /** Temps restant, utilisé en mode minuteur. */
-    var countdownRemainingMillis by mutableStateOf(countdownDurationMillis)
+    var countdownRemainingMillis by mutableLongStateOf(countdownDurationMillis)
         private set
 
     /** Vrai dès que le minuteur vient d'atteindre zéro, jusqu'à la prochaine réinitialisation. */
@@ -111,6 +113,8 @@ class TimerViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    // setAlarmClock est exempté de SCHEDULE_EXACT_ALARM (alarme visible de l'utilisateur) : l'alerte de lint est un faux positif.
+    @SuppressLint("MissingPermission")
     private fun scheduleAlarm(remainingMillis: Long) {
         // Le jeton est fixé même si l'alarme échoue : la boucle interne signalera quand même la fin.
         val triggerAt = System.currentTimeMillis() + remainingMillis

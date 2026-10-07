@@ -68,6 +68,9 @@ android {
         abortOnError = true
         warningsAsErrors = false
         htmlReport = true
+        // Versions des bibliothèques et targetSdk : leur montée de version exige un compileSdk et un AGP plus récents,
+        // à faire en une étape à part (avec test sur appareil). En attendant, on évite le bruit dans le rapport.
+        disable += setOf("GradleDependency", "OldTargetApi")
     }
 
     // Renomme le fichier APK généré : "Mes scores-debug.apk", "Mes scores-release.apk", etc.
