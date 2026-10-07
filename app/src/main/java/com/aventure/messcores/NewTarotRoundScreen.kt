@@ -251,7 +251,7 @@ fun NewTarotRoundScreen(
 
                 Button(
                     onClick = {
-                        val result = deltas ?: return@Button
+                        val roundDeltas = deltas ?: return@Button
                         val takerId = taker ?: return@Button
                         val pointsMade = points ?: return@Button
                         val unit = result?.unit ?: return@Button
@@ -280,7 +280,7 @@ fun NewTarotRoundScreen(
                                 slamAnnounced = slamAnnounced,
                                 defenseSlam = defenseSlam
                             ),
-                            deltas = result
+                            deltas = roundDeltas
                         )
                         if (editIndex != null && editing != null) {
                             viewModel.replaceTeamRound(editIndex, round)
